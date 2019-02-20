@@ -1,41 +1,19 @@
-# BrByte Arduino RS485 | brb_arduino_rs485
+# BrbPDU - BrByte Power Distribution Unit
 ====================================
 
 * [Introduction](#introduction)
-* [Libraries](#libraries)
-  * [BrbBase](#brbbase)
-  * [BrbLogBase](#brblogbase)
-  * [BrbRS485Session](#brbrs485session)
 * [Origin & References](#origin--references)
 * [License](#license)
 * [Work](#work)
 
 ## Introduction
 
-brb_arduino_rs485 is a RS485 Serial Communication with multiple devices for Arduino.
-
-## Libraries
-
-BrbBase
--------------------
-Library to manage Timers, Micro Scripts and Pins;
-
-
-BrbLogBase
--------------------
-
-Library to Log.
-
-
-BrbRS485Session
--------------------
-
-Library to manage RS485 Serial Communication.
+BrbPDU is a source using BrbBase to control a PDU.
 
 
 ## Origin & References
 
-brb_arduino_rs485 is developed and maintained by BrByte (https://software.brbyte.com).
+BrbPDU is developed and maintained by BrByte (https://software.brbyte.com).
 
 ## License
 
@@ -44,4 +22,9 @@ This project is licensed under the BSD 2-Clause License - see the [LICENSE.md](L
 ## Work
 
 There is more to come.
+
+## Author
+
+ *      Luiz Fernando Souza Softov <softov@brbyte.com> <https://github.com/softov>
+ *      Guilherme Amorim de Oliveira Alves <guilherme@brbyte.com> <https://github.com/guiaoa>
 
