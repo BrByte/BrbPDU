@@ -46,10 +46,6 @@ static BrbRS485SessionActionCBH BrbAppRS485_SessionActionSetScriptCB;
 /**********************************************************************************************************************/
 int BrbAppRS485_Setup(BrbBase *brb_base)
 {
-	LOG_DEBUG(brb_base->log_base, "rs485_sess - [%p]\r\n", (BrbRS485Session *)&glob_rs485_sess);
-
-    delay(10);
-
     /* Clean up base */
     memset((BrbRS485Session *)&glob_rs485_sess, 0, sizeof(BrbRS485Session));
     BrbRS485Session *rs485_sess = (BrbRS485Session *)&glob_rs485_sess;
@@ -61,10 +57,6 @@ int BrbAppRS485_Setup(BrbBase *brb_base)
     rs485_sess->log_base = brb_base->log_base;
     rs485_sess->serial = &Serial3;
 
-	LOG_DEBUG(brb_base->log_base, "rs485_sess - [%p] [%p] [%p]\r\n", rs485_sess, rs485_sess->serial, &Serial3);
-
-    delay(10);
-
 	/* Initialize SoftwareSerial to RS485 */
 	// Serial3.begin(BRB_RS485_BAUDRATE);
 	// rs485_sess->serial->begin(BRB_RS485_BAUDRATE);
@@ -74,8 +66,6 @@ int BrbAppRS485_Setup(BrbBase *brb_base)
     // Serial.println(buf);
 
 	// LOG_DEBUG(brb_base->log_base, "SETTED - [%p]\r\n", rs485_sess);
-
-    delay(10);
 
     BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_HANDSHAKE, BrbAppRS485_SessionActionHandShakeCB, brb_base);
     BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_GET_A, BrbAppRS485_SessionActionGetAnalogCB, brb_base);

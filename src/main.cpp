@@ -177,6 +177,9 @@ void loop()
     if (glob_btn_base.buttons[BRB_BTN_SELECT].hit > 0)
     {
         glob_btn_base.buttons[BRB_BTN_SELECT].hit = BrbDisplayBase_ScreenAction((BrbDisplayBase *)&glob_display_base, DISPLAY_ACTION_SELECT);
+
+        // glob_display_base.tft->setSPIClockDivider(SPI_CLOCK_DIV8);
+        // glob_display_base.tft->screenshotToConsole();
     }
     else if (glob_btn_base.buttons[BRB_BTN_NEXT].hit > 0)
     {

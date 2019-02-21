@@ -124,7 +124,7 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 
 	pdu_base->dht_data.ms_delta = (pdu_base->ms.cur - pdu_base->dht_data.ms_last);
 
-	if ((pdu_base->dht_sensor) && (pdu_base->dht_data.ms_last <= 0) || (pdu_base->dht_data.ms_delta >= 1000))
+	if ((pdu_base->dht_sensor) && ((pdu_base->dht_data.ms_last <= 0) || (pdu_base->dht_data.ms_delta >= 1000)))
     {
 		pdu_base->dht_data.ms_last = pdu_base->ms.cur;
 
