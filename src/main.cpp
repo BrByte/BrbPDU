@@ -122,8 +122,8 @@ void BrbPDUSetup(void)
     glob_pdu_base.zero_power.pin = PDU_ZEROCROSS_POWER_PIN;
     glob_pdu_base.zero_aux.pin = PDU_ZEROCROSS_AUX_PIN;
 
-    // glob_pdu_base.dht_sensor = new DHT(DHT_SENSOR_PIN, DHT11, (uint8_t)'\006');
-    glob_pdu_base.dht_sensor = &dht_sensor;
+    glob_pdu_base.dht_data.pin = DHT_SENSOR_PIN;
+    glob_pdu_base.dht_data.type = DHT_SENSOR_TYPE;
 
     BrbPDUBase_Init(&glob_pdu_base);
 
@@ -158,7 +158,7 @@ void setup()
     LOG_NOTICE(glob_log_base, "BrbBox Panel Control - START [%u] - 0.1.2\r\n", micros());
     LOG_NOTICE(glob_log_base, "BRB [%p], RS485 [%p]\r\n", &glob_brb_base, &glob_rs485_sess);
     LOG_NOTICE(glob_log_base, "RS485 - ADDR 0x%02x UUID [%02x-%02x-%02x-%02x]\r\n",
-               glob_rs485_sess.address, glob_rs485_sess.uuid[0], glob_rs485_sess.uuid[1], glob_rs485_sess.uuid[2], glob_rs485_sess.uuid[3]);
+               glob_rs485_sess.data.address, glob_rs485_sess.data.uuid[0], glob_rs485_sess.data.uuid[1], glob_rs485_sess.data.uuid[2], glob_rs485_sess.data.uuid[3]);
     LOG_HEAP(glob_log_base);
 
     return;
@@ -176,20 +176,14 @@ void loop()
 
     if (glob_btn_base.buttons[BRB_BTN_SELECT].hit > 0)
     {
-        LOG_NOTICE(glob_log_base, "glob_btn_base.buttons[BRB_BTN_SELECT].hit [%d]\r\n", glob_btn_base.buttons[BRB_BTN_SELECT].hit);
-
         glob_btn_base.buttons[BRB_BTN_SELECT].hit = BrbDisplayBase_ScreenAction((BrbDisplayBase *)&glob_display_base, DISPLAY_ACTION_SELECT);
     }
     else if (glob_btn_base.buttons[BRB_BTN_NEXT].hit > 0)
     {
-        LOG_NOTICE(glob_log_base, "glob_btn_base.buttons[BRB_BTN_NEXT].hit [%d]\r\n", glob_btn_base.buttons[BRB_BTN_NEXT].hit);
-
         glob_btn_base.buttons[BRB_BTN_NEXT].hit = BrbDisplayBase_ScreenAction((BrbDisplayBase *)&glob_display_base, DISPLAY_ACTION_NEXT);
     }
     else if (glob_btn_base.buttons[BRB_BTN_PREV].hit > 0)
     {
-        LOG_NOTICE(glob_log_base, "glob_btn_base.buttons[BRB_BTN_PREV].hit [%d]\r\n", glob_btn_base.buttons[BRB_BTN_PREV].hit);
-
         glob_btn_base.buttons[BRB_BTN_PREV].hit = BrbDisplayBase_ScreenAction((BrbDisplayBase *)&glob_display_base, DISPLAY_ACTION_PREV);
     }
 
@@ -202,6 +196,6 @@ void loop()
     /* Do TONE loop */
     BrbToneBase_Loop(&glob_tone_base);
 
-    // LOG_INFO(glob_log_base, "last: %ld - cur %ld - delay %ld\n", glob_brb_base.us.last, glob_brb_base.us.cur, glob_brb_base.us.delay);
+    return;
 }
 /**********************************************************************************************************************/

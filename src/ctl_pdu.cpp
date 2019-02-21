@@ -45,6 +45,18 @@ int BrbPDUBase_Init(BrbPDUBase *pdu_base)
 	if (!pdu_base)
 		return -1;
 
+	/* Read EEPROM */
+	BrbBase_EEPROMRead(pdu_base->brb_base, (uint8_t *)&pdu_base->data, sizeof(pdu_base->data), PDU_EEPROM_OFFSET);
+	
+	if (pdu_base->dht_data.pin > 0)
+		pdu_base->dht_sensor = new DHT(pdu_base->dht_data.pin, pdu_base->dht_data.type);
+
+	// pinMode(pdu_base->pin_partida, OUTPUT);
+	// digitalWrite(pdu_base->pin_partida, PDU_POWER_OFF);
+
+	// pinMode(pdu_base->pin_parada, OUTPUT);
+	// digitalWrite(pdu_base->pin_parada, PDU_POWER_OFF);
+
 	/* Setup DC Sensor pins */
 	if (pdu_base->sensor_sp01_in.pin > 0)
 		pinMode(pdu_base->sensor_sp01_in.pin, INPUT);
@@ -64,15 +76,6 @@ int BrbPDUBase_Init(BrbPDUBase *pdu_base)
 
 	if (pdu_base->sensor_aux.pin > 0)
 		pinMode(pdu_base->sensor_aux.pin, INPUT);
-
-	// pinMode(pdu_base->pin_partida, OUTPUT);
-	// digitalWrite(pdu_base->pin_partida, PDU_POWER_OFF);
-
-	// pinMode(pdu_base->pin_parada, OUTPUT);
-	// digitalWrite(pdu_base->pin_parada, PDU_POWER_OFF);
-
-	/* Read EEPROM */
-	// BrbBase_EEPROMRead(pdu_base->brb_base, (uint8_t *)&pdu_base->data, sizeof(pdu_base->data), BRB_PIN_DATA_OFFSET + 100 + (sizeof(BrbBasePinData) * TOTAL_PINS));
 
 	return 0;
 }
@@ -362,7 +365,7 @@ int BrbPDUBase_Save(BrbPDUBase *pdu_base)
 		return -1;
 
 	/* Read EEPROM */
-	BrbBase_EEPROMWrite(pdu_base->brb_base, (uint8_t *)&pdu_base->data, sizeof(pdu_base->data), BRB_PIN_DATA_OFFSET + 100 + (sizeof(BrbBasePinData) * TOTAL_PINS));
+	BrbBase_EEPROMWrite(pdu_base->brb_base, (uint8_t *)&pdu_base->data, sizeof(pdu_base->data), PDU_EEPROM_OFFSET);
 
 	return 0;
 }

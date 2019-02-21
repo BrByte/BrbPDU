@@ -65,6 +65,7 @@
 // #define RESERVED 6 /* PWM */
 #define BUZZER_PIN 7	 /* PWM */
 #define DHT_SENSOR_PIN 8 /* PWM */
+#define DHT_SENSOR_TYPE DHT11
 // #define RESERVED        9 /* PWM */
 // #define RESERVED    10 /* PCINT 4 */
 // #define RESERVED    11 /* PCINT 5 */
@@ -137,6 +138,8 @@
 #define PDU_AUX_MIN_VALUE 5
 #define PDU_AUX_MIN_HZ 10
 
+#define PDU_EEPROM_OFFSET (BRB_RS485_EEPROM_OFFSET + 64)
+
 /**********************************************************************************************************************/
 /* ENUMS */
 /**********************************************************/
@@ -166,7 +169,7 @@ typedef struct _BrbPDUBase
 	BrbToneBase *tone_base;
 	DHT *dht_sensor;
 
-	long delay;
+	// long delay;
 
 	BrbZeroCross zero_power;
 	BrbZeroCross zero_aux;
@@ -202,6 +205,9 @@ typedef struct _BrbPDUBase
 		float dht_hidx;
 		int ms_delta;
 		int ms_last;
+
+		uint8_t pin;
+		uint8_t type;
 	} dht_data;
 
 	struct

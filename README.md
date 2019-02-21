@@ -25,6 +25,6 @@ There is more to come.
 
 ## Author
 
- *      Luiz Fernando Souza Softov <softov@brbyte.com> <https://github.com/softov>
  *      Guilherme Amorim de Oliveira Alves <guilherme@brbyte.com> <https://github.com/guiaoa>
+ *      Luiz Fernando Souza Softov <softov@brbyte.com> <https://github.com/softov>
 

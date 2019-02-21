@@ -438,12 +438,6 @@ int BrbAppDisplay_ScreenTemp(void *brb_base_ptr, void *display_base_ptr)
     {
         BrbDisplayBase_SetBg(display_base);
         BrbDisplayBase_SetTitle(display_base, PSTR("Temperatura"));
-
-        // display_base->tft->fillRect(0, 50, sz_w, 15, ILI9341_LIGHTSALMON);
-        // display_base->tft->fillRect(sz_w, 50, sz_w, 15, ILI9341_LIMEGREEN);
-
-        // display_base->tft->fillRect(0, 50, 320 - sz_w, 15, ILI9341_LIGHTSALMON);
-        // display_base->tft->fillRect(sz_w, 50, 320 - sz_w, 15, ILI9341_LIMEGREEN);
     }
 
     pos_x = DISPLAY_SZ_MARGIN;
@@ -455,7 +449,6 @@ int BrbAppDisplay_ScreenTemp(void *brb_base_ptr, void *display_base_ptr)
     pos_y = sz_h;
 
     display_base->tft->fillRect(pos_x, pos_y + 15, 90, 30, DISPLAY_COLOR_BG);
-    // display_base->box.text_color = (pdu_base->dht_data.dht_temp < 30) ? ILI9341_STEELBLUE : ILI9341_ROYALBLUE;
     display_base->box.text_color = BrbDisplayBase_Rainbow(map(pdu_base->dht_data.dht_temp, -25, 100, 0, 127));
     BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("TEMP"), pdu_base->dht_data.dht_temp, 1, PSTR("C"));
 
@@ -465,7 +458,6 @@ int BrbAppDisplay_ScreenTemp(void *brb_base_ptr, void *display_base_ptr)
     pos_y = pos_y + 60;
 
     display_base->tft->fillRect(pos_x, pos_y + 15, 90, 30, DISPLAY_COLOR_BG);
-    // display_base->box.text_color = (pdu_base->dht_data.dht_humi < 30) ? ILI9341_STEELBLUE : ILI9341_ROYALBLUE;
     display_base->box.text_color = BrbDisplayBase_Rainbow(map(pdu_base->dht_data.dht_humi, -25, 100, 127, 0));
     BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("HUMIDADE"), pdu_base->dht_data.dht_humi, 1, PSTR("%"));
 
@@ -473,7 +465,6 @@ int BrbAppDisplay_ScreenTemp(void *brb_base_ptr, void *display_base_ptr)
     pos_y = pos_y + 60;
 
     display_base->tft->fillRect(pos_x, pos_y + 15, 90, 30, DISPLAY_COLOR_BG);
-    // display_base->box.text_color = (pdu_base->dht_data.dht_hidx < 30) ? ILI9341_STEELBLUE : ILI9341_ROYALBLUE;
     display_base->box.text_color = BrbDisplayBase_Rainbow(map(pdu_base->dht_data.dht_hidx, -25, 100, 0, 127));
     BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("HEAT INDEX"), pdu_base->dht_data.dht_hidx, 1, PSTR("C"));
 

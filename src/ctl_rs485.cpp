@@ -133,7 +133,7 @@ static int BrbAppRS485_SessionActionGetAnalogCB(void *base_ptr, int action_code,
 
     /* Inverse the order two reply */
     pkt_reply->hdr.dst = pkt_recv->hdr.src;
-    pkt_reply->hdr.src = rs485_sess->address;
+    pkt_reply->hdr.src = rs485_sess->data.address;
     pkt_reply->hdr.id = pkt_recv->hdr.id;
     pkt_reply->hdr.type = RS485_PKT_TYPE_CMD_GET_A;
     pkt_reply->hdr.len = sizeof(BrbRS485PacketData) + (sizeof(BrbRS485PacketPinData) * (pin_max - pin_begin));
@@ -253,7 +253,7 @@ static int BrbAppRS485_SessionActionGetDigitalCB(void *base_ptr, int action_code
 
     /* Inverse the order two reply */
     pkt_reply->hdr.dst = pkt_recv->hdr.src;
-    pkt_reply->hdr.src = rs485_sess->address;
+    pkt_reply->hdr.src = rs485_sess->data.address;
     pkt_reply->hdr.id = pkt_recv->hdr.id;
     pkt_reply->hdr.type = RS485_PKT_TYPE_CMD_GET_D;
     pkt_reply->hdr.len = sizeof(BrbRS485PacketData) + (sizeof(BrbRS485PacketPinData) * (pin_max - pin_begin));
