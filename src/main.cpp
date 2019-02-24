@@ -90,19 +90,19 @@ void BrbToneSetup(void)
     return;
 }
 /**********************************************************************************************************************/
-static void BrbPDUBase_ZeroCrossPower()
+static void BrbCtlPDU_IntZeroCrossPower()
 {
     glob_pdu_base.zero_power.counter++;
     return;
 }
 /**********************************************************************************************************************/
-static void BrbPDUBase_ZeroCrossAux()
+static void BrbCtlPDU_IntZeroCrossAux()
 {
     glob_pdu_base.zero_aux.counter++;
     return;
 }
 /**********************************************************************************************************************/
-void BrbPDUSetup(void)
+void BrbCtlPDU_Setup(void)
 {
     /* Clean up base */
     memset(&glob_pdu_base, 0, sizeof(BrbPDUBase));
@@ -127,8 +127,8 @@ void BrbPDUSetup(void)
 
     BrbPDUBase_Init(&glob_pdu_base);
 
-    attachInterrupt(digitalPinToInterrupt(glob_pdu_base.zero_power.pin), BrbPDUBase_ZeroCrossPower, RISING);
-    attachInterrupt(digitalPinToInterrupt(glob_pdu_base.zero_aux.pin), BrbPDUBase_ZeroCrossAux, RISING);
+    attachInterrupt(digitalPinToInterrupt(glob_pdu_base.zero_power.pin), BrbCtlPDU_IntZeroCrossPower, RISING);
+    attachInterrupt(digitalPinToInterrupt(glob_pdu_base.zero_aux.pin), BrbCtlPDU_IntZeroCrossAux, RISING);
 
     return;
 }
@@ -141,7 +141,7 @@ void setup()
     BrbSetup();
 
     /* Setup Display before anything, because it can display some info, eg logs */
-    BrbAppDisplay_Setup(&glob_brb_base);
+    BrbCtlDisplay_Setup(&glob_brb_base);
 
     /* Setup Tone  */
     BrbToneSetup();
@@ -150,10 +150,10 @@ void setup()
     BrbBtnSetup();
 
     /* Setup RS485 Serial */
-    BrbAppRS485_Setup(&glob_brb_base);
+    BrbCtlRS485_Setup(&glob_brb_base);
 
     /* Setup System */
-    BrbPDUSetup();
+    BrbCtlPDU_Setup();
 
     LOG_NOTICE(glob_log_base, "BrbBox Panel Control - START [%u] - 0.1.2\r\n", micros());
     LOG_NOTICE(glob_log_base, "BRB [%p], RS485 [%p]\r\n", &glob_brb_base, &glob_rs485_sess);

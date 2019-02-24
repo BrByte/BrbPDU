@@ -33,18 +33,19 @@
 
 #include "main.h"
 
-static BrbRS485SessionActionCBH BrbAppRS485_SessionActionHandShakeCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionHandShakeCB;
 
-static BrbRS485SessionActionCBH BrbAppRS485_SessionActionGetAnalogCB;
-static BrbRS485SessionActionCBH BrbAppRS485_SessionActionSetAnalogCB;
-static BrbRS485SessionActionCBH BrbAppRS485_SessionActionSetAnalogBMPCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionGetAnalogCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionSetAnalogCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionSetAnalogBMPCB;
 
-static BrbRS485SessionActionCBH BrbAppRS485_SessionActionGetDigitalCB;
-static BrbRS485SessionActionCBH BrbAppRS485_SessionActionSetDigitalCB;
-static BrbRS485SessionActionCBH BrbAppRS485_SessionActionSetDigitalBMPCB;
-static BrbRS485SessionActionCBH BrbAppRS485_SessionActionSetScriptCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionGetDigitalCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionSetDigitalCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionSetDigitalBMPCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionSetScriptCB;
+static BrbRS485SessionActionCBH BrbCtlRS485_SessionActionDataCB;
 /**********************************************************************************************************************/
-int BrbAppRS485_Setup(BrbBase *brb_base)
+int BrbCtlRS485_Setup(BrbBase *brb_base)
 {
     /* Clean up base */
     memset((BrbRS485Session *)&glob_rs485_sess, 0, sizeof(BrbRS485Session));
@@ -56,6 +57,7 @@ int BrbAppRS485_Setup(BrbBase *brb_base)
     rs485_sess->pinREDE = RS485_REDE_PIN;
     rs485_sess->log_base = brb_base->log_base;
     rs485_sess->serial = &Serial3;
+    rs485_sess->device_type = 0x11;
 
 	/* Initialize SoftwareSerial to RS485 */
 	// Serial3.begin(BRB_RS485_BAUDRATE);
@@ -67,16 +69,18 @@ int BrbAppRS485_Setup(BrbBase *brb_base)
 
 	// LOG_DEBUG(brb_base->log_base, "SETTED - [%p]\r\n", rs485_sess);
 
-    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_HANDSHAKE, BrbAppRS485_SessionActionHandShakeCB, brb_base);
-    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_GET_A, BrbAppRS485_SessionActionGetAnalogCB, brb_base);
-    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_A, BrbAppRS485_SessionActionSetAnalogCB, brb_base);
-    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_A_BMP, BrbAppRS485_SessionActionSetAnalogBMPCB, brb_base);
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_HANDSHAKE, BrbCtlRS485_SessionActionHandShakeCB, brb_base);
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_GET_A, BrbCtlRS485_SessionActionGetAnalogCB, brb_base);
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_A, BrbCtlRS485_SessionActionSetAnalogCB, brb_base);
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_A_BMP, BrbCtlRS485_SessionActionSetAnalogBMPCB, brb_base);
 
-    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_GET_D, BrbAppRS485_SessionActionGetDigitalCB, brb_base);
-    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_D, BrbAppRS485_SessionActionSetDigitalCB, brb_base);
-    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_D_BMP, BrbAppRS485_SessionActionSetDigitalBMPCB, brb_base);
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_GET_D, BrbCtlRS485_SessionActionGetDigitalCB, brb_base);
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_D, BrbCtlRS485_SessionActionSetDigitalCB, brb_base);
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_D_BMP, BrbCtlRS485_SessionActionSetDigitalBMPCB, brb_base);
 
-    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_SCRIPT, BrbAppRS485_SessionActionSetScriptCB, brb_base);
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_CMD_SET_SCRIPT, BrbCtlRS485_SessionActionSetScriptCB, brb_base);
+
+    BrbRS485Session_SetEventCB(rs485_sess, RS485_PKT_TYPE_DATA, BrbCtlRS485_SessionActionDataCB, brb_base);
 
     /* Initialize session data */
     BrbRS485Session_Init(rs485_sess);
@@ -84,7 +88,7 @@ int BrbAppRS485_Setup(BrbBase *brb_base)
     return 0;
 }
 /**********************************************************************************************************************/
-static int BrbAppRS485_SessionActionHandShakeCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+static int BrbCtlRS485_SessionActionHandShakeCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
 {
     // BrbRS485Session *rs485_sess             = (BrbRS485Session *)base_ptr;
     // BrbRS485PacketHandShake *pkt_recv_hs    = (BrbRS485PacketHandShake *)buffer_ptr;
@@ -95,31 +99,32 @@ static int BrbAppRS485_SessionActionHandShakeCB(void *base_ptr, int action_code,
     return RS485_PKT_RETURN_QUIET;
 }
 /**********************************************************************************************************************/
-static int BrbAppRS485_SessionActionGetAnalogCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+static int BrbCtlRS485_SessionActionGetAnalogCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
 {
     BrbRS485Session *rs485_sess = (BrbRS485Session *)base_ptr;
     BrbRS485PacketData *pkt_recv = (BrbRS485PacketData *)buffer_ptr;
     BrbRS485PacketData *pkt_reply = (BrbRS485PacketData *)&rs485_sess->pkt.out.data;
     BrbRS485PacketPinData *pin_data = (BrbRS485PacketPinData *)(pkt_reply + 1);
 
-    int op_status;
+    int pin_code = pkt_recv->val.code;
     int pin_begin;
     int pin_max;
+    int op_status;
     int i;
 
     /* Adjust pin query */
-    if (pkt_recv->val < MIN_ANA_PIN || pkt_recv->val >= MAX_ANA_PIN)
+    if (pin_code < MIN_ANA_PIN || pin_code >= MAX_ANA_PIN)
     {
         pin_begin = MIN_ANA_PIN;
         pin_max = MAX_ANA_PIN;
     }
     else
     {
-        pin_begin = pkt_recv->val;
-        pin_max = pkt_recv->val + 1;
+        pin_begin = pin_code;
+        pin_max = pin_code + 1;
     }
 
-    // LOG_DEBUG(glob_log_base, "GET ANALOG - [%u] - [%d][%d]\n", pkt_recv->val, pin_begin, pin_max);
+    // LOG_DEBUG(glob_log_base, "GET ANALOG - [%u] - [%d][%d]\n", pin_code, pin_begin, pin_max);
 
     /* Inverse the order two reply */
     pkt_reply->hdr.dst = pkt_recv->hdr.src;
@@ -132,8 +137,8 @@ static int BrbAppRS485_SessionActionGetAnalogCB(void *base_ptr, int action_code,
     {
         pin_data->pin = i;
         pin_data->type = 0;
-        pin_data->mode = BrbBase_PinGetMode(glob_analog_pins[i]);
-        pin_data->value = analogRead(glob_analog_pins[i]);
+        pin_data->mode = BrbBase_PinGetMode(BrbBase_PinGetAnalogPin(i));
+        pin_data->value = analogRead(i);
 
         // LOG_DEBUG(glob_log_base, "GET ANALOG [%u] - [%d]\n", i, pin_data->value);
 
@@ -149,7 +154,7 @@ static int BrbAppRS485_SessionActionGetAnalogCB(void *base_ptr, int action_code,
     return RS485_PKT_RETURN_QUIET;
 }
 /**********************************************************************************************************************/
-static int BrbAppRS485_SessionActionSetAnalogCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+static int BrbCtlRS485_SessionActionSetAnalogCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
 {
     BrbRS485Session *rs485_sess = (BrbRS485Session *)base_ptr;
     BrbRS485PacketSetPin *pkt_recv_set = (BrbRS485PacketSetPin *)buffer_ptr;
@@ -160,30 +165,31 @@ static int BrbAppRS485_SessionActionSetAnalogCB(void *base_ptr, int action_code,
     if (pkt_recv_set->pin < MIN_ANA_PIN || pkt_recv_set->pin >= MAX_ANA_PIN)
         return RS485_PKT_RETURN_ACK_FAIL;
 
+    int analog_pin = BrbBase_PinGetAnalogPin(pkt_recv_set->pin);
+
     if (pkt_recv_set->mode == OUTPUT)
     {
-        pinMode(glob_analog_pins[pkt_recv_set->pin], OUTPUT);
-
-        analogWrite(glob_analog_pins[pkt_recv_set->pin], pkt_recv_set->value);
+        analogWrite(analog_pin, pkt_recv_set->value);
     }
     else if (pkt_recv_set->mode == INPUT)
-        pinMode(glob_analog_pins[pkt_recv_set->pin], INPUT);
+        pinMode(analog_pin, INPUT);
     else if (pkt_recv_set->mode == INPUT_PULLUP)
-        pinMode(glob_analog_pins[pkt_recv_set->pin], INPUT_PULLUP);
+        pinMode(analog_pin, INPUT_PULLUP);
 
     glob_brb_base.pin_data[MAX_DIG_PIN + pkt_recv_set->pin].value = pkt_recv_set->value;
     glob_brb_base.pin_data[MAX_DIG_PIN + pkt_recv_set->pin].mode = pkt_recv_set->mode;
-    glob_brb_base.pin_data[MAX_DIG_PIN + pkt_recv_set->pin].persist = 0;
+    glob_brb_base.pin_data[MAX_DIG_PIN + pkt_recv_set->pin].persist = pkt_recv_set->persist;
 
     BrbBase_PinSave(rs485_sess->brb_base);
 
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }
 /**********************************************************************************************************************/
-static int BrbAppRS485_SessionActionSetAnalogBMPCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+static int BrbCtlRS485_SessionActionSetAnalogBMPCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
 {
     BrbRS485PacketSetPinBmpAna *pkt_recv_set = (BrbRS485PacketSetPinBmpAna *)buffer_ptr;
 
+    int analog_pin;
     int i;
 
     for (i = MIN_ANA_PIN; i < MAX_ANA_PIN && i < 32; i++)
@@ -191,24 +197,23 @@ static int BrbAppRS485_SessionActionSetAnalogBMPCB(void *base_ptr, int action_co
         if (pkt_recv_set->map[i].mode == 3)
             continue;
 
+        analog_pin = BrbBase_PinGetAnalogPin(i);
+
         LOG_INFO(rs485_sess->log_base, "SET ANALOG [%u]/[%u] - [%u] [%u]\n",
-                 i, glob_analog_pins[i], pkt_recv_set->map[i].mode, pkt_recv_set->map[i].value);
+                 i, analog_pin, pkt_recv_set->map[i].mode, pkt_recv_set->map[i].value);
 
         if (pkt_recv_set->map[i].mode == OUTPUT)
         {
-            pinMode(glob_analog_pins[i], OUTPUT);
-
-            analogWrite(glob_analog_pins[i], pkt_recv_set->map[i].value);
+            analogWrite(analog_pin, pkt_recv_set->map[i].value);
         }
         else if (pkt_recv_set->map[i].mode == INPUT)
-            pinMode(glob_analog_pins[i], INPUT);
+            pinMode(analog_pin, INPUT);
         else if (pkt_recv_set->map[i].mode == INPUT_PULLUP)
-            pinMode(glob_analog_pins[i], INPUT_PULLUP);
+            pinMode(analog_pin, INPUT_PULLUP);
 
         glob_brb_base.pin_data[MAX_DIG_PIN + i].value = pkt_recv_set->map[i].value;
         glob_brb_base.pin_data[MAX_DIG_PIN + i].mode = pkt_recv_set->map[i].mode;
-        // glob_brb_base.pin_data[MAX_DIG_PIN + i].persist = pkt_recv_set->map[i].persist;
-        glob_brb_base.pin_data[MAX_DIG_PIN + i].persist = 0;
+        glob_brb_base.pin_data[MAX_DIG_PIN + i].persist = pkt_recv_set->map[i].persist;
     }
 
     BrbBase_PinSave(&glob_brb_base);
@@ -216,30 +221,32 @@ static int BrbAppRS485_SessionActionSetAnalogBMPCB(void *base_ptr, int action_co
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }
 /**********************************************************************************************************************/
-static int BrbAppRS485_SessionActionGetDigitalCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+static int BrbCtlRS485_SessionActionGetDigitalCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
 {
     BrbRS485Session *rs485_sess = (BrbRS485Session *)base_ptr;
     BrbRS485PacketData *pkt_recv = (BrbRS485PacketData *)buffer_ptr;
     BrbRS485PacketData *pkt_reply = (BrbRS485PacketData *)&rs485_sess->pkt.out.data;
     BrbRS485PacketPinData *pin_data = (BrbRS485PacketPinData *)(pkt_reply + 1);
-    int op_status;
+    
+    int pin_code = pkt_recv->val.code;
     int pin_begin;
     int pin_max;
+    int op_status;
     int i;
 
     /* Adjust pin query */
-    if (pkt_recv->val < 0 || pkt_recv->val >= MAX_DIG_PIN)
+    if (pin_code < 0 || pin_code >= MAX_DIG_PIN)
     {
         pin_begin = 0;
         pin_max = MAX_DIG_PIN;
     }
     else
     {
-        pin_begin = pkt_recv->val;
-        pin_max = pkt_recv->val + 1;
+        pin_begin = pin_code;
+        pin_max = pin_code + 1;
     }
 
-    LOG_INFO(rs485_sess->log_base, "GET DIGITAL - [%u] - [%d][%d]\n", pkt_recv->val, pin_begin, pin_max);
+    LOG_INFO(rs485_sess->log_base, "GET DIGITAL - [%u] - [%d][%d]\n", pin_code, pin_begin, pin_max);
 
     /* Inverse the order two reply */
     pkt_reply->hdr.dst = pkt_recv->hdr.src;
@@ -268,7 +275,7 @@ static int BrbAppRS485_SessionActionGetDigitalCB(void *base_ptr, int action_code
     return RS485_PKT_RETURN_QUIET;
 }
 /**********************************************************************************************************************/
-static int BrbAppRS485_SessionActionSetDigitalCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+static int BrbCtlRS485_SessionActionSetDigitalCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
 {
     BrbRS485Session *rs485_sess = (BrbRS485Session *)base_ptr;
     BrbRS485PacketSetPin *pkt_recv_set = (BrbRS485PacketSetPin *)buffer_ptr;
@@ -281,17 +288,19 @@ static int BrbAppRS485_SessionActionSetDigitalCB(void *base_ptr, int action_code
 
     /* Check output, set value */
     if (pkt_recv_set->mode == OUTPUT)
+    {
         pinMode(pkt_recv_set->pin, OUTPUT);
+
+        digitalWrite(pkt_recv_set->pin, (pkt_recv_set->value == HIGH) ? HIGH : LOW);
+    }
     if (pkt_recv_set->mode == INPUT_PULLUP)
         pinMode(pkt_recv_set->pin, INPUT_PULLUP);
     else if (pkt_recv_set->mode == INPUT)
         pinMode(pkt_recv_set->pin, INPUT);
 
-    digitalWrite(pkt_recv_set->pin, (pkt_recv_set->value == HIGH) ? HIGH : LOW);
-
     glob_brb_base.pin_data[pkt_recv_set->pin].value = (pkt_recv_set->value == HIGH) ? HIGH : LOW;
     glob_brb_base.pin_data[pkt_recv_set->pin].mode = pkt_recv_set->mode;
-    // glob_brb_base.pin_data[pkt_recv_set->pin].persist = pkt_recv_set->persist;
+    glob_brb_base.pin_data[pkt_recv_set->pin].persist = pkt_recv_set->persist;
     glob_brb_base.pin_data[pkt_recv_set->pin].persist = 0;
 
     BrbBase_PinSave(&glob_brb_base);
@@ -299,7 +308,7 @@ static int BrbAppRS485_SessionActionSetDigitalCB(void *base_ptr, int action_code
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }
 /**********************************************************************************************************************/
-static int BrbAppRS485_SessionActionSetDigitalBMPCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+static int BrbCtlRS485_SessionActionSetDigitalBMPCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
 {
     BrbRS485Session *rs485_sess = (BrbRS485Session *)base_ptr;
     BrbRS485PacketSetPinBmpDig *pkt_recv_set = (BrbRS485PacketSetPinBmpDig *)buffer_ptr;
@@ -313,17 +322,19 @@ static int BrbAppRS485_SessionActionSetDigitalBMPCB(void *base_ptr, int action_c
         LOG_DEBUG(rs485_sess->log_base, "SET DIGITAL [%u] - [%u] [%u]\n", i, pkt_recv_set->map[i].value, pkt_recv_set->map[i].mode);
 
         if (pkt_recv_set->map[i].mode == OUTPUT)
+        {
             pinMode(i, OUTPUT);
+            
+            digitalWrite(i, (pkt_recv_set->map[i].value == HIGH) ? HIGH : LOW);
+        }
         else if (pkt_recv_set->map[i].mode == INPUT)
             pinMode(i, INPUT);
         else if (pkt_recv_set->map[i].mode == INPUT_PULLUP)
             pinMode(i, INPUT_PULLUP);
 
-        digitalWrite(i, (pkt_recv_set->map[i].value == HIGH) ? HIGH : LOW);
-
         glob_brb_base.pin_data[i].value = (pkt_recv_set->map[i].value == HIGH) ? HIGH : LOW;
         glob_brb_base.pin_data[i].mode = pkt_recv_set->map[i].mode;
-        // glob_brb_base.pin_data[i].persist = pkt_recv_set->map[i].persist;
+        glob_brb_base.pin_data[i].persist = pkt_recv_set->map[i].persist;
         glob_brb_base.pin_data[i].persist = 0;
     }
 
@@ -332,7 +343,7 @@ static int BrbAppRS485_SessionActionSetDigitalBMPCB(void *base_ptr, int action_c
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }
 /**********************************************************************************************************************/
-static int BrbAppRS485_SessionActionSetScriptCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+static int BrbCtlRS485_SessionActionSetScriptCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
 {
     BrbRS485Session *rs485_sess = (BrbRS485Session *)base_ptr;
     BrbRS485PacketSetScript *pkt_recv_set = (BrbRS485PacketSetScript *)buffer_ptr;
@@ -356,6 +367,43 @@ static int BrbAppRS485_SessionActionSetScriptCB(void *base_ptr, int action_code,
 
     script->flags.persist = pkt_recv_set->persist;
     script->flags.active = 1;
+
+    return RS485_PKT_RETURN_ACK_SUCCESS;
+}
+/**********************************************************************************************************************/
+static int BrbCtlRS485_SessionActionDataCB(void *base_ptr, int action_code, const void *buffer_ptr, unsigned int buffer_sz, void *cb_data_ptr)
+{
+    BrbRS485Session *rs485_sess = (BrbRS485Session *)base_ptr;
+    BrbRS485PacketData *pkt_data = (BrbRS485PacketData *)buffer_ptr;
+    BrbRS485PacketVal *pkt_val = (BrbRS485PacketVal *)&pkt_data->val;
+    BrbBase *brb_base = (BrbBase *)cb_data_ptr;
+
+    LOG_WARN(rs485_sess->log_base, "ACTION DATA [%d] [%d] [%d]\r\n", pkt_data->hdr.id, pkt_val->type, pkt_val->code);
+
+    switch (pkt_val->type)
+    {
+        case RS485_PKT_DATA_TYPE_ACTION:
+        {
+            BrbPDUBase_ActionCmd(&glob_pdu_base, pkt_val->code);
+
+            break;
+        }
+        case RS485_PKT_DATA_TYPE_INFORM:
+        {
+            break;
+        }
+        case RS485_PKT_DATA_TYPE_NOTIFY:
+        {
+            break;
+        }
+        case RS485_PKT_DATA_TYPE_NONE:
+        case RS485_PKT_DATA_TYPE_LAST_ITEM:
+        default:
+        {
+            break;
+        }
+
+    }
 
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }

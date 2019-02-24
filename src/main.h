@@ -53,9 +53,6 @@
 /**********************************************************************************************************************/
 /* DEFINES */
 /**********************************************************/
-
-/**********************************************************************************************************************/
-
 // #define RESERVED    0 /* RX0 */
 // #define RESERVED    1 /* TX0 */
 #define PDU_ZEROCROSS_POWER_PIN 2 /* INT4 - PWM */
@@ -119,6 +116,11 @@
 
 #define SENSOR_AC_POWER_PIN A5
 #define SENSOR_AC_AUX_PIN A6
+// #define SENSOR_AC_BAT_PIN A7
+/**********************************************************/
+#define PDU_EEPROM_OFFSET (BRB_RS485_EEPROM_OFFSET + 64)
+
+// #define PDU_POWER_REVERSE 1
 
 #ifdef PDU_POWER_REVERSE
 #define PDU_POWER_ON LOW
@@ -128,36 +130,63 @@
 #define PDU_POWER_OFF LOW
 #endif
 
-#define PDU_TIMER_FAIL_ALARM_MS 5000
-
-#define PDU_TIMER_ZERO_WAIT_MS 2000
-
 #define PDU_POWER_MIN_VALUE 5
 #define PDU_POWER_MIN_HZ 10
 
 #define PDU_AUX_MIN_VALUE 5
 #define PDU_AUX_MIN_HZ 10
+/**********************************************************/
+#define PDU_TIMER_FAIL_WAIT_MS 10000
 
-#define PDU_EEPROM_OFFSET (BRB_RS485_EEPROM_OFFSET + 64)
+#define PDU_TIMER_POWER_MIN_MS 15000
 
+#define PDU_TIMER_AUX_MIN_MS 15000
+// #define PDU_TIMER_AUX_WAIT_MS 5000
+
+#define PDU_TIMER_TRANSF_P2A_WAIT_MS 15000
+#define PDU_TIMER_TRANSF_A2P_WAIT_MS 15000
+
+#define PDU_TIMER_ZERO_WAIT_MS 2000
+
+#define PDU_TIMER_SENSOR_WAIT_MS 2000
+#define PDU_TIMER_SENSOR_SAMPLES 5
+
+#define PDU_TIMER_DHT_MS 1000
 /**********************************************************************************************************************/
 /* ENUMS */
 /**********************************************************/
+typedef enum
+{
+	PDU_ACTION_NONE,
+	PDU_ACTION_TRANSFER_ENABLE,
+	PDU_ACTION_TRANSFER_DISABLE,
+	PDU_ACTION_TRANSFER_FORCE,
+
+	PDU_ACTION_LAST_ITEM
+
+} BrbPDUActionCode;
+
 typedef enum
 {
 	PDU_FAILURE_NONE,
 	PDU_FAILURE_POWER_DOWN,
 	PDU_FAILURE_AUX_DOWN,
 
+	PDU_FAILURE_CANT_P2A,
+	PDU_FAILURE_CANT_A2P,
+
 } BrbPDUFailureCode;
 
 typedef enum
 {
 	PDU_STATE_NONE,
+	PDU_STATE_FAILURE,
+
 	PDU_STATE_RUNNING_POWER,
 	PDU_STATE_RUNNING_AUX,
 
-	PDU_STATE_FAILURE
+	PDU_STATE_TRANSF_P2A_DELAY,
+	PDU_STATE_TRANSF_A2P_DELAY
 
 } BrbPDUStateCode;
 /**********************************************************************************************************************/
@@ -168,8 +197,6 @@ typedef struct _BrbPDUBase
 	BrbBase *brb_base;
 	BrbToneBase *tone_base;
 	DHT *dht_sensor;
-
-	// long delay;
 
 	BrbZeroCross zero_power;
 	BrbZeroCross zero_aux;
@@ -183,20 +210,35 @@ typedef struct _BrbPDUBase
 	BrbSensorVoltage sensor_sp02_in;
 	BrbSensorVoltage sensor_sp02_out;
 
+	int pin_transfer;
+
 	struct
 	{
 		long cur;
 		long last;
 		long delay;
 
+		long power_time;
+		long power_delay;
+
+		long aux_time;
+		long aux_delay;
+
 	} ms;
 
 	struct
 	{
-		int ms_delta;
-		int ms_last;
+		long ms_delta;
+		long ms_last;
 
 	} zerocross;
+
+	struct
+	{
+		long ms_delta;
+		long ms_last;
+
+	} sensor;
 	
 	struct
 	{
@@ -244,7 +286,8 @@ typedef struct _BrbPDUBase
 
 	struct
 	{
-		unsigned int foo : 1;
+		unsigned int transfer_enabled : 1;
+		unsigned int transfer_force : 1;
 	} flags;
 
 } BrbPDUBase;
@@ -252,26 +295,25 @@ typedef struct _BrbPDUBase
 int BrbPDUBase_Init(BrbPDUBase *pdu_base);
 int BrbPDUBase_Loop(BrbPDUBase *pdu_base);
 int BrbPDUBase_Save(BrbPDUBase *pdu_base);
-int BrbPDUBase_HourmeterReset(BrbPDUBase *pdu_base);
 
-int BrbPDUBase_Start(BrbPDUBase *pdu_base);
-int BrbPDUBase_Stop(BrbPDUBase *pdu_base);
+// int BrbPDUBase_HourmeterReset(BrbPDUBase *pdu_base);
+int BrbPDUBase_ActionCmd(BrbPDUBase *pdu_base, int cmd_code);
 
-int BrbPDUBase_FailureConfirm(BrbPDUBase *pdu_base);
+// int BrbPDUBase_Start(BrbPDUBase *pdu_base);
+// int BrbPDUBase_Stop(BrbPDUBase *pdu_base);
+// int BrbPDUBase_FailureConfirm(BrbPDUBase *pdu_base);
 
-const char *BrbPDUBase_GetState(BrbPDUBase *pdu_base);
-const char *BrbPDUBase_GetStateAction(BrbPDUBase *pdu_base);
-const char *BrbPDUBase_GetStateButton(BrbPDUBase *pdu_base);
-const char *BrbPDUBase_GetFailure(BrbPDUBase *pdu_base);
-
+const char *BrbPDUBase_GetStateText(BrbPDUBase *pdu_base);
+uint16_t BrbPDUBase_GetStateColor(BrbPDUBase *pdu_base);
+const char *BrbPDUBase_GetFailureText(BrbPDUBase *pdu_base);
 /**********************************************************************************************************************/
 /* Display */
 /**********************************************************/
-int BrbAppDisplay_Setup(BrbBase *brb_base);
+int BrbCtlDisplay_Setup(BrbBase *brb_base);
 /**********************************************************************************************************************/
 /* RS485 */
 /**********************************************************/
-int BrbAppRS485_Setup(BrbBase *brb_base);
+int BrbCtlRS485_Setup(BrbBase *brb_base);
 /**********************************************************************************************************************/
 /* Global control structures */
 extern BrbLogBase *glob_log_base;
