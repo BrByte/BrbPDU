@@ -137,7 +137,8 @@ static int BrbCtlRS485_SessionActionGetAnalogCB(void *base_ptr, int action_code,
     {
         pin_data->pin = i;
         pin_data->type = 0;
-        pin_data->mode = BrbBase_PinGetMode(BrbBase_PinGetAnalogPin(i));
+        pin_data->mode = 0;
+        // pin_data->mode = BrbBase_PinGetMode(BrbBase_PinGetAnalogPin(i));
         pin_data->value = analogRead(i);
 
         // LOG_DEBUG(glob_log_base, "GET ANALOG [%u] - [%d]\n", i, pin_data->value);
@@ -216,7 +217,7 @@ static int BrbCtlRS485_SessionActionSetAnalogBMPCB(void *base_ptr, int action_co
         glob_brb_base.pin_data[MAX_DIG_PIN + i].persist = pkt_recv_set->map[i].persist;
     }
 
-    BrbBase_PinSave(&glob_brb_base);
+    // BrbBase_PinSave(&glob_brb_base);
 
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }
@@ -246,7 +247,7 @@ static int BrbCtlRS485_SessionActionGetDigitalCB(void *base_ptr, int action_code
         pin_max = pin_code + 1;
     }
 
-    LOG_INFO(rs485_sess->log_base, "GET DIGITAL - [%u] - [%d][%d]\n", pin_code, pin_begin, pin_max);
+    // LOG_INFO(rs485_sess->log_base, "GET DIGITAL - [%u] - [%d][%d]\n", pin_code, pin_begin, pin_max);
 
     /* Inverse the order two reply */
     pkt_reply->hdr.dst = pkt_recv->hdr.src;
@@ -259,8 +260,9 @@ static int BrbCtlRS485_SessionActionGetDigitalCB(void *base_ptr, int action_code
     {
         pin_data->pin = i;
         pin_data->type = 1;
+        // pin_data->mode = BrbBase_PinGetMode(i);
+        pin_data->mode = 0;
         pin_data->value = digitalRead(i);
-        pin_data->mode = BrbBase_PinGetMode(i);
         // pin_data->value = 0;
         // pin_data->mode = 0;
         pin_data++;
@@ -350,7 +352,7 @@ static int BrbCtlRS485_SessionActionSetScriptCB(void *base_ptr, int action_code,
     BrbBase *brb_base = (BrbBase *)cb_data_ptr;
     BrbMicroScript *script;
 
-    LOG_WARN(rs485_sess->log_base, "SCRIPT SET [%p] [%p] [%d]\r\n", &glob_brb_base, brb_base, pkt_recv_set->script_id);
+    LOG_WARN(rs485_sess->log_base, "SCRIPT SET [%p] [%p] [%d] - [%d]\r\n", &glob_brb_base, brb_base, pkt_recv_set->script_id, pkt_recv_set->code.size);
 
     script = BrbMicroScriptGrabFree(&brb_base->script_base);
 
@@ -378,7 +380,7 @@ static int BrbCtlRS485_SessionActionDataCB(void *base_ptr, int action_code, cons
     BrbRS485PacketVal *pkt_val = (BrbRS485PacketVal *)&pkt_data->val;
     BrbBase *brb_base = (BrbBase *)cb_data_ptr;
 
-    LOG_WARN(rs485_sess->log_base, "ACTION DATA [%d] [%d] [%d]\r\n", pkt_data->hdr.id, pkt_val->type, pkt_val->code);
+    LOG_DEBUG(rs485_sess->log_base, "ACTION DATA [%d] [%d] [%d]\r\n", pkt_data->hdr.id, pkt_val->type, pkt_val->code);
 
     switch (pkt_val->type)
     {

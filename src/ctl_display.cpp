@@ -40,6 +40,8 @@ typedef enum
     DISPLAY_SCREEN_INFO,
     DISPLAY_SCREEN_SUPPLY,
     DISPLAY_SCREEN_TEMP,
+    DISPLAY_SCREEN_RELAY,
+    DISPLAY_SCREEN_TRANSISTOR,
     DISPLAY_SCREEN_LASTITEM
 } BrbDisplayScreen;
 
@@ -50,6 +52,8 @@ static BrbGenericCBH BrbCtlDisplay_ScreenRS485;
 static BrbGenericCBH BrbCtlDisplay_ScreenInfo;
 static BrbGenericCBH BrbCtlDisplay_ScreenSupply;
 static BrbGenericCBH BrbCtlDisplay_ScreenTemp;
+static BrbGenericCBH BrbCtlDisplay_ScreenRelay;
+static BrbGenericCBH BrbCtlDisplay_ScreenTransistor;
 
 static const BrbDisplayScreenPrototype glob_display_screen_prototype[] =
     {
@@ -73,10 +77,21 @@ static const BrbDisplayScreenPrototype glob_display_screen_prototype[] =
         "TEMP",
         BrbCtlDisplay_ScreenTemp,
 
+        DISPLAY_SCREEN_RELAY,
+        "RELAY",
+        BrbCtlDisplay_ScreenRelay,
+
+        DISPLAY_SCREEN_TRANSISTOR,
+        "TRANSISTOR",
+        BrbCtlDisplay_ScreenTransistor,
+
         DISPLAY_SCREEN_LASTITEM,
         NULL,
         NULL,
 };
+
+static int BrbCtlDisplay_ScreenStart(BrbDisplayBase *display_base);
+
 /**********************************************************************************************************************/
 int BrbCtlDisplay_Setup(BrbBase *brb_base)
 {
@@ -87,9 +102,9 @@ int BrbCtlDisplay_Setup(BrbBase *brb_base)
 
     display_base->brb_base = brb_base;
     // display_base->screen_cur = DISPLAY_SCREEN_CORE;
-    display_base->screen_cur = DISPLAY_SCREEN_INFO;
+    // display_base->screen_cur = DISPLAY_SCREEN_INFO;
     // display_base->screen_cur = DISPLAY_SCREEN_SUPPLY;
-    // display_base->screen_cur = DISPLAY_SCREEN_TEMP;
+    display_base->screen_cur = DISPLAY_SCREEN_RELAY;
 
     display_base->pin_led = TFT_LED;
     display_base->pin_cs = TFT_CS;
@@ -107,9 +122,9 @@ int BrbCtlDisplay_Setup(BrbBase *brb_base)
     // display_base->tft = new TFT_eSPI();
 
     BrbDisplayBase_Init(display_base);
-    BrbDisplayBase_ScreenAction(display_base, -1);
+    BrbCtlDisplay_ScreenStart(display_base);
 
-    BrbTimerAdd(display_base->brb_base, 5000, 0, BrbCtlDisplay_Timer, display_base);
+    BrbTimerAdd(display_base->brb_base, 2500, 0, BrbCtlDisplay_Timer, display_base);
 
     return 0;
 }
@@ -128,33 +143,320 @@ static int BrbCtlDisplay_Timer(void *base_ptr, void *cb_data_ptr)
 
     int delay = 5000;
 
-    // switch (pdu_base->state.code)
-    // {
-    // case PDU_STATE_START_INIT:
-    // case PDU_STATE_START_DELAY:
-    // case PDU_STATE_START_CHECK:
-    // case PDU_STATE_STOP_INIT:
-    // case PDU_STATE_STOP_DELAY:
-    // case PDU_STATE_STOP_CHECK:
-    // {
-    //     delay = 1500;
-    //     break;
-    // }
-    // case PDU_STATE_FAILURE:
-    // {
-    //     delay = 2500;
-    //     break;
-    // }
-    // case PDU_STATE_RUNNING:
-    // case PDU_STATE_NONE:
-    // default:
-    // {
-    //     delay = 5000;
-    //     break;
-    // }
-    // }
+    switch (pdu_base->state.code)
+    {
+    case PDU_STATE_RUNNING_POWER:
+    case PDU_STATE_RUNNING_AUX:
+    {
+        delay = 3000;
+        break;
+    }
+    case PDU_STATE_TRANSF_P2A_DELAY:
+    case PDU_STATE_TRANSF_A2P_DELAY:
+    case PDU_STATE_FAILURE:
+    {
+        delay = 2000;
+        break;
+    }
+    case PDU_STATE_NONE:
+    default:
+    {
+        delay = 5000;
+        break;
+    }
+    }
 
     BrbTimerAdd(&glob_brb_base, delay, 0, BrbCtlDisplay_Timer, display_base);
+
+    // glob_display_base.tft->setSPIClockDivider(SPI_CLOCK_DIV8);
+    // glob_display_base.tft->screenshotToConsole();
+    // glob_display_base.tft->setSPIClockDivider(ILI9341_SPI_CLKDIVIDER);
+
+    return 0;
+}
+/**********************************************************************************************************************/
+static int BrbCtlDisplay_ScreenStart(BrbDisplayBase *display_base)
+{
+    BrbDisplayBase_SetBg(display_base);
+
+	display_base->tft->drawImage(brbyte_white, 100, 60, brbyte_whiteWidth, brbyte_whiteHeight);
+
+    display_base->tft->setTextColor(ILI9341_BLACK, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_TITLE);
+    display_base->tft->setTextScale(1);
+    display_base->tft->printAtPivoted((const __FlashStringHelper *)PSTR("PDU Control 1.0"), 160, 140, gTextPivotMiddleCenter);
+
+    return 0;
+}
+/**********************************************************************************************************************/
+int BrbCtlDisplay_ScreenRelay(void *brb_base_ptr, void *display_base_ptr)
+{
+    BrbDisplayBase *display_base = (BrbDisplayBase *)display_base_ptr;
+    BrbPDUBase *pdu_base = (BrbPDUBase *)&glob_pdu_base;
+
+    int pos_x;
+    int pos_y;
+
+    if (display_base->screen_cur != display_base->screen_last)
+    {
+        BrbDisplayBase_SetBg(display_base);
+        BrbDisplayBase_SetTitle(display_base, PSTR("RELAY"));
+        display_base->tft->fillRect(DISPLAY_SZ_MARGIN, 89, 310, 1, ILI9341_TOMATO);
+    }
+
+    if (!display_base->flags.on_action && display_base->flags.on_select)
+    {
+        display_base->flags.on_action = 1;
+        display_base->action_code = -1;
+    }
+
+    int relay_mode;
+    int item_cnt = 8;
+    int c;
+    int i;
+
+    pos_x = 0;
+    pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2) + 35;
+
+    if (display_base->flags.on_action)
+    {
+        if (display_base->action_code == DISPLAY_ACTION_SELECT)
+        {            
+            if (display_base->user_int >= 0 && display_base->user_int < item_cnt)
+            {
+                pinMode(PDU_RELAY_PIN + display_base->user_int, OUTPUT);
+                digitalWrite(PDU_RELAY_PIN + display_base->user_int, !digitalRead(PDU_RELAY_PIN + display_base->user_int));
+                
+	            BrbPDUBase_Save(pdu_base);
+            }
+            else
+            {
+                display_base->flags.on_action = 0;
+                display_base->user_int = 0;
+                // display_base->screen_last = -1;                
+            }
+
+            return BrbDisplayBase_ScreenAction(display_base, -1);;
+        }
+        else if (display_base->action_code == DISPLAY_ACTION_PREV)
+        {
+            display_base->user_int--;
+
+            if (display_base->user_int < 0)
+                display_base->user_int = item_cnt;
+
+            display_base->user_int = display_base->user_int % (item_cnt + 1);
+        }
+        else if (display_base->action_code == DISPLAY_ACTION_NEXT)
+        {
+            display_base->user_int++;
+            display_base->user_int = display_base->user_int % (item_cnt + 1);
+        }
+    }
+    else
+    {
+
+    }
+
+    for (i = 0; i < item_cnt; i++)
+    {
+        c = (i) % 4;
+
+        if (i > 0 && c == 0)
+        {
+            pos_y += 80;
+        }
+
+        relay_mode = digitalRead(PDU_RELAY_PIN + i);
+        display_base->tft->fillCircle(pos_x + (c * 80) + 40, pos_y, 30, DISPLAY_COLOR_BG);
+        
+        if (relay_mode == LOW)
+        {
+            display_base->tft->setTextColor(ILI9341_SEAGREEN, DISPLAY_COLOR_BG);
+            display_base->tft->setFont(DISPLAY_FONT_ICON);
+            display_base->tft->setTextScale(2);
+            display_base->tft->printAtPivoted((const __FlashStringHelper *)DISPLAY_FONT_ICON_LAMP, pos_x + (c * 80) + 40, pos_y, gTextPivotMiddleCenter);
+        }
+        else 
+        {
+            display_base->tft->setTextColor(ILI9341_DARKGRAY, DISPLAY_COLOR_BG);
+            display_base->tft->setFont(DISPLAY_FONT_ICON2);
+            display_base->tft->setTextScale(2);
+            display_base->tft->printAtPivoted((const __FlashStringHelper *)DISPLAY_FONT_ICON_C_OFF, pos_x + (c * 80) + 40, pos_y, gTextPivotMiddleCenter);
+        }
+
+        if (display_base->user_int == i && (display_base->flags.on_action))
+        {
+            display_base->tft->fillArc(pos_x + (c * 80) + 40, pos_y, 40, 7, 0, 360, ILI9341_ORANGERED);
+        }
+        else
+        {
+            display_base->tft->fillArc(pos_x + (c * 80) + 40, pos_y, 40, 7, 0, 360, DISPLAY_COLOR_BG);
+        }        
+    }
+
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = DISPLAY_SZ_TITLE_H + 170;
+
+    display_base->tft->fillRect(DISPLAY_SZ_MARGIN, pos_y, 160, 40, DISPLAY_COLOR_BG);
+
+    if (display_base->flags.on_action)
+    {
+        display_base->tft->setTextColor(display_base->user_int == item_cnt ? ILI9341_ORANGERED : ILI9341_BLACK, DISPLAY_COLOR_BG);
+        display_base->tft->setFont(DISPLAY_FONT_ICON2);
+        display_base->tft->setTextScale(1);
+        display_base->tft->cursorToXY(pos_x + 5, pos_y);
+        display_base->tft->println((const __FlashStringHelper *)DISPLAY_FONT_ICON_C_R);
+        display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
+        display_base->tft->setTextScale(1);
+        display_base->tft->cursorToXY(pos_x + 35, pos_y + 5);
+        display_base->tft->println((const __FlashStringHelper *)PSTR("SAIR"));
+        display_base->tft->drawRect(pos_x, pos_y, 105, 40, display_base->user_int == item_cnt ? ILI9341_ORANGERED : ILI9341_BLACK);
+    }
+
+    return 0;
+}
+/**********************************************************************************************************************/
+int BrbCtlDisplay_ScreenTransistor(void *brb_base_ptr, void *display_base_ptr)
+{
+    BrbDisplayBase *display_base = (BrbDisplayBase *)display_base_ptr;
+    BrbPDUBase *pdu_base = (BrbPDUBase *)&glob_pdu_base;
+
+    int pos_x;
+    int pos_y;
+
+    if (display_base->screen_cur != display_base->screen_last)
+    {
+        BrbDisplayBase_SetBg(display_base);
+        BrbDisplayBase_SetTitle(display_base, PSTR("Transistor"));
+        display_base->tft->fillRect(DISPLAY_SZ_MARGIN, 89, 310, 1, ILI9341_WHITESMOKE);
+    }
+
+    if (!display_base->flags.on_action && display_base->flags.on_select)
+    {
+        display_base->flags.on_action = 1;
+        display_base->action_code = -1;
+    }
+
+    int relay_mode;
+    int relay_check;
+    int item_cnt = 8;
+    int c;
+    int i;
+
+    pos_x = 0;
+    pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2) + 35;
+
+    if (display_base->flags.on_action)
+    {
+        if (display_base->action_code == DISPLAY_ACTION_SELECT)
+        {            
+            if (display_base->user_int >= 0 && display_base->user_int < item_cnt)
+            {
+                pinMode(PDU_TRANSISTOR_PIN + display_base->user_int, OUTPUT);
+                digitalWrite(PDU_TRANSISTOR_PIN + display_base->user_int, !digitalRead(PDU_TRANSISTOR_PIN + display_base->user_int));
+                
+	            BrbPDUBase_Save(pdu_base);
+            }
+            else
+            {
+                display_base->flags.on_action = 0;
+                display_base->user_int = 0;
+                // display_base->screen_last = -1;                
+            }
+
+            return BrbDisplayBase_ScreenAction(display_base, -1);;
+        }
+        else if (display_base->action_code == DISPLAY_ACTION_PREV)
+        {
+            display_base->user_int--;
+
+            if (display_base->user_int < 0)
+                display_base->user_int = item_cnt;
+
+            display_base->user_int = display_base->user_int % (item_cnt + 1);
+        }
+        else if (display_base->action_code == DISPLAY_ACTION_NEXT)
+        {
+            display_base->user_int++;
+            display_base->user_int = display_base->user_int % (item_cnt + 1);
+        }
+    }
+    else
+    {
+
+    }
+
+    for (i = 0; i < item_cnt; i++)
+    {
+        c = (i) % 4;
+
+        if (i > 0 && c == 0)
+        {
+            pos_y += 80;
+        }
+
+        relay_mode = digitalRead(PDU_TRANSISTOR_PIN + i);
+        display_base->tft->fillCircle(pos_x + (c * 80) + 40, pos_y, 30, DISPLAY_COLOR_BG);
+        
+        if (i == 2)
+            relay_check = digitalRead(PDU_TTR_CHECK_PIN_2);
+        else if (i == 3)
+            relay_check = digitalRead(PDU_TTR_CHECK_PIN_3);
+        else if (i == 4)
+            relay_check = digitalRead(PDU_TTR_CHECK_PIN_4);
+        else if (i == 5)
+            relay_check = digitalRead(PDU_TTR_CHECK_PIN_5);
+        else if (i == 6)
+            relay_check = digitalRead(PDU_TTR_CHECK_PIN_6);
+        else if (i == 7)
+            relay_check = digitalRead(PDU_TTR_CHECK_PIN_7);
+        else
+            relay_check = !relay_mode;            
+
+        if (relay_mode == HIGH)
+        {
+            display_base->tft->setTextColor((relay_check == LOW) ? ILI9341_SEAGREEN : ILI9341_ORANGERED, DISPLAY_COLOR_BG);
+            display_base->tft->setFont(DISPLAY_FONT_ICON);
+            display_base->tft->setTextScale(2);
+            display_base->tft->printAtPivoted((const __FlashStringHelper *)(relay_check == LOW ? DISPLAY_FONT_ICON_LAMP : DISPLAY_FONT_ICON_ALERT), pos_x + (c * 80) + 40, pos_y - 5, gTextPivotMiddleCenter);            
+        }
+        else 
+        {
+            display_base->tft->setTextColor((relay_check != LOW) ? ILI9341_DARKGRAY : ILI9341_ORANGERED, DISPLAY_COLOR_BG);
+            display_base->tft->setFont((relay_check != LOW ? DISPLAY_FONT_ICON2 : DISPLAY_FONT_ICON));
+            display_base->tft->setTextScale(2);
+            display_base->tft->printAtPivoted((const __FlashStringHelper *)(relay_check != LOW ? DISPLAY_FONT_ICON_C_OFF : DISPLAY_FONT_ICON_POWER), pos_x + (c * 80) + 40, pos_y - 5, gTextPivotMiddleCenter);
+        }
+
+        if (display_base->user_int == i && (display_base->flags.on_action))
+        {
+            display_base->tft->fillArc(pos_x + (c * 80) + 40, pos_y, 40, 5, 0, 360, ILI9341_ORANGERED);
+        }
+        else
+        {
+            display_base->tft->fillArc(pos_x + (c * 80) + 40, pos_y, 40, 5, 0, 360, DISPLAY_COLOR_BG);
+        }
+    }
+
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = DISPLAY_SZ_TITLE_H + 170;
+
+    // display_base->tft->fillRect(DISPLAY_SZ_MARGIN, pos_y, 160, 40, DISPLAY_COLOR_BG);
+
+    if (display_base->flags.on_action)
+    {
+        display_base->tft->setTextColor(display_base->user_int == item_cnt ? ILI9341_ORANGERED : ILI9341_BLACK, DISPLAY_COLOR_BG);
+        display_base->tft->setFont(DISPLAY_FONT_ICON2);
+        display_base->tft->setTextScale(1);
+        display_base->tft->cursorToXY(pos_x + 5, pos_y);
+        display_base->tft->println((const __FlashStringHelper *)DISPLAY_FONT_ICON_C_R);
+        display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
+        display_base->tft->setTextScale(1);
+        display_base->tft->cursorToXY(pos_x + 35, pos_y + 5);
+        display_base->tft->println((const __FlashStringHelper *)PSTR("SAIR"));
+        display_base->tft->drawRect(pos_x, pos_y, 105, 40, display_base->user_int == item_cnt ? ILI9341_ORANGERED : ILI9341_BLACK);
+    }
 
     return 0;
 }
@@ -167,6 +469,7 @@ int BrbCtlDisplay_ScreenInfo(void *brb_base_ptr, void *display_base_ptr)
     int pos_x;
     int pos_y;
 
+    const char *icon_ptr = NULL;
     const char *title_ptr = NULL;
     const char *text_ptr = NULL;
     int color;
@@ -191,12 +494,20 @@ int BrbCtlDisplay_ScreenInfo(void *brb_base_ptr, void *display_base_ptr)
 
     color = BrbPDUBase_GetStateColor(pdu_base);
     title_ptr = BrbPDUBase_GetStateText(pdu_base);
+    icon_ptr = BrbPDUBase_GetStateIcon(pdu_base);
     text_ptr = BrbPDUBase_GetFailureText(pdu_base);
+
+    display_base->tft->setTextColor(color, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_ICON);
+    display_base->tft->setTextScale(1);
+    display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN, pos_y - 5);
+    display_base->tft->println((const __FlashStringHelper *)icon_ptr);
+
 
     display_base->tft->setTextColor(color, DISPLAY_COLOR_BG);
     display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
     display_base->tft->setTextScale(1);
-    display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN, pos_y);
+    display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN + 30, pos_y);
     display_base->tft->println((const __FlashStringHelper *)title_ptr);
 
     if (text_ptr)
@@ -271,16 +582,40 @@ int BrbCtlDisplay_ScreenSupply(void *brb_base_ptr, void *display_base_ptr)
 
     display_base->tft->fillRect(DISPLAY_SZ_MARGIN, pos_y, 310, 49, DISPLAY_COLOR_BG);
 
-    if ((pdu_base->sensor_sp01_in.value < 12.0) || (pdu_base->sensor_sp01_out.value < 5.0) || (pdu_base->sensor_sp01_out.value > 6.0))
+    if (pdu_base->sensor_sp01_in.value < 23.0)
     {
-        title_ptr = PSTR("Trocar Fonte 01");
-        text_ptr = PSTR("Verificar ou trocar equipamento");
+        title_ptr = PSTR("Verificar Fonte 01");
+        text_ptr = PSTR("Equipamento abaixo de 24VDC");
         color = ILI9341_ORANGERED;
     }
-    else if ((pdu_base->sensor_sp02_in.value < 12.0) || (pdu_base->sensor_sp02_out.value < 5.0) || (pdu_base->sensor_sp02_out.value > 6.0))
+    else if (pdu_base->sensor_sp01_out.value < 4.9)
     {
-        title_ptr = PSTR("Trocar Fonte 02");
-        text_ptr = PSTR("Verificar ou trocar equipamento");
+        title_ptr = PSTR("Verificar Fonte 01");
+        text_ptr = PSTR("Equipamento abaixo de 5VDC");
+        color = ILI9341_ORANGERED;
+    }
+    else if (pdu_base->sensor_sp01_out.value > 5.7)
+    {
+        title_ptr = PSTR("Verificar Fonte 01");
+        text_ptr = PSTR("Equipamento acima de 5.7VDC");
+        color = ILI9341_ORANGERED;
+    }
+    else if (pdu_base->sensor_sp02_in.value < 23.0)
+    {
+        title_ptr = PSTR("Verificar Fonte 02");
+        text_ptr = PSTR("Equipamento abaixo de 24VDC");
+        color = ILI9341_ORANGERED;
+    }
+    else if (pdu_base->sensor_sp02_out.value < 4.9)
+    {
+        title_ptr = PSTR("Verificar Fonte 02");
+        text_ptr = PSTR("Equipamento abaixo de 5VDC");
+        color = ILI9341_ORANGERED;
+    }
+    else if (pdu_base->sensor_sp02_out.value > 5.7)
+    {
+        title_ptr = PSTR("Verificar Fonte 02");
+        text_ptr = PSTR("Equipamento acima de 5.7VDC");
         color = ILI9341_ORANGERED;
     }
     else
@@ -422,8 +757,6 @@ int BrbCtlDisplay_ScreenCore(void *brb_base_ptr, void *display_base_ptr)
 int BrbCtlDisplay_ScreenRS485(void *brb_base_ptr, void *display_base_ptr)
 {
     BrbDisplayBase *display_base = (BrbDisplayBase *)display_base_ptr;
-    BrbPDUBase *pdu_base = (BrbPDUBase *)&glob_pdu_base;
-    BrbBase *brb_base = (BrbBase *)brb_base_ptr;
     BrbRS485Session *rs485_sess = (BrbRS485Session *)&glob_rs485_sess;
 
     int pos_x;

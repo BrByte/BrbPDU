@@ -56,20 +56,24 @@
 // #define RESERVED    0 /* RX0 */
 // #define RESERVED    1 /* TX0 */
 #define PDU_ZEROCROSS_POWER_PIN 2 /* INT4 - PWM */
-#define PDU_ZEROCROSS_AUX_PIN 3   /* INT5 - PWM */
-// #define RESERVED 4 /* PWM */
-// #define RESERVED 5 /* PWM */
-// #define RESERVED 6 /* PWM */
-#define BUZZER_PIN 7	 /* PWM */
-#define DHT_SENSOR_PIN 8 /* PWM */
+#define PDU_ZEROCROSS_AUX_PIN 	3 /* INT5 - PWM */
+
+#define PDU_TTR_CHECK_PIN_2 4 /* PWM */
+#define PDU_TTR_CHECK_PIN_3 5 /* PWM */
+#define PDU_TTR_CHECK_PIN_4 6 /* PWM */
+
+#define BUZZER_PIN 		7 /* PWM */
+#define DHT_SENSOR_PIN 	8 /* PWM */
 #define DHT_SENSOR_TYPE DHT11
-// #define RESERVED        9 /* PWM */
-// #define RESERVED    10 /* PCINT 4 */
-// #define RESERVED    11 /* PCINT 5 */
+
+#define PDU_TTR_CHECK_PIN_5 9 /* PWM */
+#define PDU_TTR_CHECK_PIN_6 10 /* PCINT 4 */
+#define PDU_TTR_CHECK_PIN_7 11 /* PCINT 5 */
+
 // #define RESERVED    12 /* PCINT 6 */
 // #define RESERVED    13 /* PCINT 7 */
-#define RS485_DI_PIN 14 /* PCINT10 - TX3 */
-#define RS485_RO_PIN 15 /* PCINT9 - RX3 */
+#define RS485_DI_PIN 	14 /* PCINT10 - TX3 */
+#define RS485_RO_PIN 	15 /* PCINT9 - RX3 */
 // #define RESERVED    16 /* TX2 */
 // #define RESERVED    17 /* RX2 */
 // #define RESERVED    18 /* INT3 - TX1 */
@@ -77,14 +81,18 @@
 // #define RESERVED    20 /* INT0 - SCL */
 // #define RESERVED    21 /* INT1 - SDA */
 #define RS485_REDE_PIN 22 /* TOGGLE PIN (RE + DE) */
-// #define RESERVED    23 /* */
-// #define RESERVED    24 /* */
-// #define RESERVED    25 /* */
-#define BTN_PIN_SELECT 26 /* */
-#define BTN_PIN_NEXT 27   /* */
-#define BTN_PIN_PREV 28   /* */
+
+#define BTN_PIN_NEXT 	23 /* */
+#define BTN_PIN_SELECT 	24 /* */
+#define BTN_PIN_PREV 	25 /* */
+
+#define PDU_TRANSFER_PIN    26 /* */
+// #define RESERVED    27 /* */
+// #define RESERVED    28 /* */
 // #define RESERVED    29 /* */
-// #define RESERVED    30 /* */
+
+/* TRANSISTOR PINS */
+#define PDU_TRANSISTOR_PIN    30 /* */
 // #define RESERVED    31 /* */
 // #define RESERVED    32 /* */
 // #define RESERVED    33 /* */
@@ -92,31 +100,36 @@
 // #define RESERVED    35 /* */
 // #define RESERVED    36 /* */
 // #define RESERVED    37 /* */
-// #define RESERVED    38 /* */
+
+/* Relay */
+#define PDU_RELAY_PIN  38 /* */
 // #define RESERVED    39 /* */
 // #define RESERVED    40 /* */
 // #define RESERVED    41 /* */
-// #define RESERVED    42
-// #define RESERVED    43 /*  */
-// #define RESERVED    44 /*  */
+// #define RESERVED    42 /* */
+// #define RESERVED    43 /* */
+// #define RESERVED    44 /* */
 // #define RESERVED    45 /* PWM */
-#define TFT_LED 46  /* PWM */
-#define TFT_CS 47   /*  */
-#define TFT_DC 48   /*  */
-#define TFT_RST 49  /* */
-#define TFT_MISO 50 /* PCINT3 - MISO */
-#define TFT_MOSI 51 /* PCINT2 - MOSI */
-#define TFT_CLK 52  /* PCINT1 - SCK */
-// #define RESERVED     53 /* PCINT0 - SS */
 
-#define SENSOR_DC_SUPPLY_01_IN_PIN A0
-#define SENSOR_DC_SUPPLY_01_OUT_PIN A1
-#define SENSOR_DC_SUPPLY_02_IN_PIN A2
-#define SENSOR_DC_SUPPLY_02_OUT_PIN A3
+#define TFT_LED 	46 /* PWM */
+#define TFT_CS 		47 /*  */
+#define TFT_DC 		48 /*  */
+#define TFT_RST 	49 /* */
+#define TFT_MISO 	50 /* PCINT3 - MISO */
+#define TFT_MOSI 	51 /* PCINT2 - MOSI */
+#define TFT_CLK 	52 /* PCINT1 - SCK */
+// #define RESERVED    53 /* PCINT0 - SS */
 
-#define SENSOR_AC_POWER_PIN A5
-#define SENSOR_AC_AUX_PIN A6
-// #define SENSOR_AC_BAT_PIN A7
+#define SENSOR_DC_SUPPLY_01_IN_PIN 		A0
+#define SENSOR_DC_SUPPLY_01_OUT_PIN 	A1
+#define SENSOR_DC_SUPPLY_02_IN_PIN 		A2
+#define SENSOR_DC_SUPPLY_02_OUT_PIN 	A3
+
+#define SENSOR_AC_POWER_PIN 	A5
+#define SENSOR_AC_AUX_PIN 		A6
+#define SENSOR_AC_BAT_PIN 		A7
+
+#define SENSOR_TRANSISTOR_PIN 		A10
 /**********************************************************/
 #define PDU_EEPROM_OFFSET (BRB_RS485_EEPROM_OFFSET + 64)
 
@@ -130,28 +143,34 @@
 #define PDU_POWER_OFF LOW
 #endif
 
-#define PDU_POWER_MIN_VALUE 5
+#define PDU_POWER_MIN_VALUE 110
 #define PDU_POWER_MIN_HZ 10
 
-#define PDU_AUX_MIN_VALUE 5
+#define PDU_AUX_MIN_VALUE 160
 #define PDU_AUX_MIN_HZ 10
 /**********************************************************/
-#define PDU_TIMER_FAIL_WAIT_MS 10000
+#define PDU_TIMER_FAIL_DELAY_MS 10000
 
+// #define PDU_TIMER_POWER_DELAY_MS 10000
 #define PDU_TIMER_POWER_MIN_MS 15000
 
+// #define PDU_TIMER_AUX_DELAY_MS 10000
 #define PDU_TIMER_AUX_MIN_MS 15000
-// #define PDU_TIMER_AUX_WAIT_MS 5000
 
-#define PDU_TIMER_TRANSF_P2A_WAIT_MS 15000
-#define PDU_TIMER_TRANSF_A2P_WAIT_MS 15000
+#define PDU_TIMER_TRANSF_P2A_DELAY_MS 10000
+#define PDU_TIMER_TRANSF_A2P_DELAY_MS 10000
 
-#define PDU_TIMER_ZERO_WAIT_MS 2000
+#define PDU_TIMER_ZERO_DELAY_MS 2000
 
-#define PDU_TIMER_SENSOR_WAIT_MS 2000
+#define PDU_TIMER_SENSOR_DELAY_MS 2000
 #define PDU_TIMER_SENSOR_SAMPLES 5
 
 #define PDU_TIMER_DHT_MS 1000
+
+#define PDU_SSR_COUNT 4
+#define PDU_TTR_COUNT 8
+#define PDU_RLY_COUNT 8
+
 /**********************************************************************************************************************/
 /* ENUMS */
 /**********************************************************/
@@ -173,7 +192,7 @@ typedef enum
 	PDU_FAILURE_AUX_DOWN,
 
 	PDU_FAILURE_CANT_P2A,
-	PDU_FAILURE_CANT_A2P,
+	// PDU_FAILURE_CANT_A2P,
 
 } BrbPDUFailureCode;
 
@@ -210,7 +229,9 @@ typedef struct _BrbPDUBase
 	BrbSensorVoltage sensor_sp02_in;
 	BrbSensorVoltage sensor_sp02_out;
 
-	int pin_transfer;
+	// int pin_transfer;	
+	// int pin_ttr;
+	// int pin_rly;
 
 	struct
 	{
@@ -278,9 +299,14 @@ typedef struct _BrbPDUBase
 		long hourmeter_time;
 		long hourmeter_reset;
 
-		long reserved1;
-		long reserved2;
-		long reserved3;
+		long last_transfer;
+		long last_start;
+
+		int ssr_data[PDU_SSR_COUNT];
+		int ttr_data[PDU_TTR_COUNT];
+		int rly_data[PDU_RLY_COUNT];
+		
+		long payload[8];
 
 	} data;
 
@@ -294,6 +320,8 @@ typedef struct _BrbPDUBase
 /**********************************************************************************************************************/
 int BrbPDUBase_Init(BrbPDUBase *pdu_base);
 int BrbPDUBase_Loop(BrbPDUBase *pdu_base);
+
+int BrbPDUBase_Load(BrbPDUBase *pdu_base);
 int BrbPDUBase_Save(BrbPDUBase *pdu_base);
 
 // int BrbPDUBase_HourmeterReset(BrbPDUBase *pdu_base);
@@ -303,8 +331,9 @@ int BrbPDUBase_ActionCmd(BrbPDUBase *pdu_base, int cmd_code);
 // int BrbPDUBase_Stop(BrbPDUBase *pdu_base);
 // int BrbPDUBase_FailureConfirm(BrbPDUBase *pdu_base);
 
-const char *BrbPDUBase_GetStateText(BrbPDUBase *pdu_base);
 uint16_t BrbPDUBase_GetStateColor(BrbPDUBase *pdu_base);
+const char *BrbPDUBase_GetStateText(BrbPDUBase *pdu_base);
+const char *BrbPDUBase_GetStateIcon(BrbPDUBase *pdu_base);
 const char *BrbPDUBase_GetFailureText(BrbPDUBase *pdu_base);
 /**********************************************************************************************************************/
 /* Display */

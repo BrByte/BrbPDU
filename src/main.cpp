@@ -161,6 +161,30 @@ void setup()
                glob_rs485_sess.data.address, glob_rs485_sess.data.uuid[0], glob_rs485_sess.data.uuid[1], glob_rs485_sess.data.uuid[2], glob_rs485_sess.data.uuid[3]);
     LOG_HEAP(glob_log_base);
 
+    // BrbMicroScript *script_test;
+    // int i;
+
+    // script_test = BrbMicroScriptGrabFree(&glob_brb_base.script_base);
+    // script_test->flags.active = 1;
+    // script_test->flags.persist = 1;
+    
+    // for (i = 0; i < PDU_TTR_COUNT; i++)
+    // {
+    //     BrbMicroScriptOPAddSetDig(&glob_brb_base.script_base, script_test, (glob_pdu_base.pin_ttr + i), OUTPUT, LOW);
+    // }
+    
+    // BrbMicroScriptOPAddDelay(&glob_brb_base.script_base, script_test, 1000);
+    
+    // for (i = 0; i < PDU_TTR_COUNT; i++)
+    // {
+    //     BrbMicroScriptOPAddSetDig(&glob_brb_base.script_base, script_test, (glob_pdu_base.pin_ttr + i), OUTPUT, HIGH);
+    // }
+
+    // BrbMicroScriptOPAddDelay(&glob_brb_base.script_base, script_test, 1000);
+
+    // LOG_NOTICE(glob_log_base, "CODE SIZE [%d]\r\n", script_test->code.size);
+    
+
     return;
 }
 /**********************************************************************************************************************/
@@ -178,8 +202,6 @@ void loop()
     {
         glob_btn_base.buttons[BRB_BTN_SELECT].hit = BrbDisplayBase_ScreenAction((BrbDisplayBase *)&glob_display_base, DISPLAY_ACTION_SELECT);
 
-        // glob_display_base.tft->setSPIClockDivider(SPI_CLOCK_DIV8);
-        // glob_display_base.tft->screenshotToConsole();
     }
     else if (glob_btn_base.buttons[BRB_BTN_NEXT].hit > 0)
     {
@@ -198,6 +220,26 @@ void loop()
 
     /* Do TONE loop */
     BrbToneBase_Loop(&glob_tone_base);
+
+    // // send data only when you receive data:
+    // if (Serial.available() > 0)
+    // {
+    //     // read the incoming byte:
+    //     byte incomingByte = Serial.read();
+
+    //     if (incomingByte == 'p')
+    //     {
+    //         glob_display_base.tft->setSPIClockDivider(SPI_CLOCK_DIV8);
+    //         glob_display_base.tft->screenshotToConsole();
+    //         glob_display_base.tft->setSPIClockDivider(ILI9341_SPI_CLKDIVIDER);
+    //     }
+    //     else if (incomingByte == 'n')
+    //     {
+    //         glob_btn_base.buttons[BRB_BTN_NEXT].hit = BrbDisplayBase_ScreenAction((BrbDisplayBase *)&glob_display_base, DISPLAY_ACTION_NEXT);
+    //     }
+        
+    //     LOG_NOTICE(glob_log_base, "GOT [%c]\r\n", incomingByte);
+    // }
 
     return;
 }
