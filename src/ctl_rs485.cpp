@@ -181,8 +181,6 @@ static int BrbCtlRS485_SessionActionSetAnalogCB(void *base_ptr, int action_code,
     glob_brb_base.pin_data[MAX_DIG_PIN + pkt_recv_set->pin].mode = pkt_recv_set->mode;
     glob_brb_base.pin_data[MAX_DIG_PIN + pkt_recv_set->pin].persist = pkt_recv_set->persist;
 
-    BrbBase_PinSave(rs485_sess->brb_base);
-
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }
 /**********************************************************************************************************************/
@@ -305,8 +303,6 @@ static int BrbCtlRS485_SessionActionSetDigitalCB(void *base_ptr, int action_code
     glob_brb_base.pin_data[pkt_recv_set->pin].persist = pkt_recv_set->persist;
     glob_brb_base.pin_data[pkt_recv_set->pin].persist = 0;
 
-    BrbBase_PinSave(&glob_brb_base);
-
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }
 /**********************************************************************************************************************/
@@ -339,8 +335,6 @@ static int BrbCtlRS485_SessionActionSetDigitalBMPCB(void *base_ptr, int action_c
         glob_brb_base.pin_data[i].persist = pkt_recv_set->map[i].persist;
         glob_brb_base.pin_data[i].persist = 0;
     }
-
-    BrbBase_PinSave(&glob_brb_base);
 
     return RS485_PKT_RETURN_ACK_SUCCESS;
 }

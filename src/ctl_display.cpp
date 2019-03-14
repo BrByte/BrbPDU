@@ -45,6 +45,13 @@ typedef enum
     DISPLAY_SCREEN_LASTITEM
 } BrbDisplayScreen;
 
+typedef enum
+{
+    DISPLAY_INFO_ACTION_AUTO,
+    DISPLAY_INFO_ACTION_TRANSFER,
+    DISPLAY_INFO_ACTION_LASTITEM
+} BrbDisplayInfoAction;
+
 static BrbGenericCBH BrbCtlDisplay_Timer;
 
 static BrbGenericCBH BrbCtlDisplay_ScreenCore;
@@ -102,9 +109,9 @@ int BrbCtlDisplay_Setup(BrbBase *brb_base)
 
     display_base->brb_base = brb_base;
     // display_base->screen_cur = DISPLAY_SCREEN_CORE;
-    // display_base->screen_cur = DISPLAY_SCREEN_INFO;
+    display_base->screen_cur = DISPLAY_SCREEN_INFO;
     // display_base->screen_cur = DISPLAY_SCREEN_SUPPLY;
-    display_base->screen_cur = DISPLAY_SCREEN_RELAY;
+    // display_base->screen_cur = DISPLAY_SCREEN_RELAY;
 
     display_base->pin_led = TFT_LED;
     display_base->pin_cs = TFT_CS;
@@ -189,6 +196,235 @@ static int BrbCtlDisplay_ScreenStart(BrbDisplayBase *display_base)
     return 0;
 }
 /**********************************************************************************************************************/
+int BrbCtlDisplay_ScreenInfo(void *brb_base_ptr, void *display_base_ptr)
+{
+    BrbDisplayBase *display_base = (BrbDisplayBase *)display_base_ptr;
+    BrbPDUBase *pdu_base = (BrbPDUBase *)&glob_pdu_base;
+
+    int pos_x;
+    int pos_y;
+
+    const char *icon_ptr = NULL;
+    const char *title_ptr = NULL;
+    const char *text_ptr = NULL;
+    int color;
+
+    if (!display_base->flags.on_action && display_base->flags.on_select)
+    {
+        display_base->flags.on_action = 1;
+        display_base->action_code = DISPLAY_INFO_ACTION_LASTITEM;
+        display_base->screen_last = -1;
+    }
+
+    if (display_base->screen_cur != display_base->screen_last)
+    {
+        BrbDisplayBase_SetBg(display_base);
+        BrbDisplayBase_SetTitle(display_base, PSTR("INFO"));
+        display_base->tft->fillRect(DISPLAY_SZ_MARGIN, 89, 310, 1, ILI9341_WHITESMOKE);
+    }
+    
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2);
+
+    if (display_base->flags.on_action)
+    {
+        if (display_base->action_code == DISPLAY_ACTION_SELECT)
+        {
+            if (display_base->user_int >= 0 && display_base->user_int < DISPLAY_INFO_ACTION_LASTITEM)
+            {
+                switch (display_base->user_int)
+                {
+                    case DISPLAY_INFO_ACTION_AUTO:
+                    {
+                        BrbPDUBase_ActionCmd(&glob_pdu_base, !pdu_base->data.flags.auto_enabled ? PDU_ACTION_AUTO_ENABLE : PDU_ACTION_AUTO_DISABLE);
+
+                        break;
+                    }
+                    case DISPLAY_INFO_ACTION_TRANSFER:
+                    {
+                        BrbPDUBase_ActionCmd(&glob_pdu_base, !pdu_base->data.flags.transfer_force ? PDU_ACTION_TRANSFER_ENABLE : PDU_ACTION_TRANSFER_DISABLE);
+
+                        break;
+                    }
+                }
+                
+	            BrbPDUBase_Save(pdu_base);
+            }
+            else
+            {
+                display_base->flags.on_action = 0;
+                display_base->user_int = 0;
+                display_base->screen_last = -1;
+            }
+
+            return BrbDisplayBase_ScreenAction(display_base, -1);
+        }
+        else if (display_base->action_code == DISPLAY_ACTION_PREV)
+        {
+            display_base->user_int--;
+
+            if (display_base->user_int < 0)
+                display_base->user_int = DISPLAY_INFO_ACTION_LASTITEM;
+
+            display_base->user_int = display_base->user_int % (DISPLAY_INFO_ACTION_LASTITEM + 1);
+        }
+        else if (display_base->action_code == DISPLAY_ACTION_NEXT)
+        {
+            display_base->user_int++;
+            display_base->user_int = display_base->user_int % (DISPLAY_INFO_ACTION_LASTITEM + 1);
+        }
+
+        int i;
+
+        for (i = 0; i < DISPLAY_INFO_ACTION_LASTITEM; i++)
+        {
+            const char *action_ptr;
+
+            switch (i)
+            {
+                case DISPLAY_INFO_ACTION_AUTO:
+                {
+                    if (pdu_base->data.flags.auto_enabled)
+                    {
+                        action_ptr = PSTR("AUTO : ON");
+                    }
+                    else
+                    {
+                        action_ptr = PSTR("AUTO : OFF");
+                    }
+
+                    break;
+                }
+                case DISPLAY_INFO_ACTION_TRANSFER:
+                {
+                    if (pdu_base->data.flags.transfer_force)
+                    {
+                        action_ptr = PSTR("TRANSFER : ON");
+                    }
+                    else
+                    {
+                        action_ptr = PSTR("TRANSFER : OFF");
+                    }
+
+                    break;
+                }
+                default:
+                    continue;
+                    break;
+            }
+            
+            display_base->tft->fillRect(pos_x, pos_y + (i * 50), 310, 45, display_base->user_int == i ? ILI9341_ORANGERED : ILI9341_LIGHTGREY);
+            display_base->tft->setTextColor(display_base->user_int == i ? ILI9341_WHITE : ILI9341_BLACK, display_base->user_int == i ? ILI9341_ORANGERED : ILI9341_LIGHTGREY);
+            display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
+            display_base->tft->setTextScale(1);
+            display_base->tft->cursorToXY(pos_x + 20, pos_y + (i * 50) + 10);
+            display_base->tft->println((const __FlashStringHelper *)action_ptr);
+            
+            continue;
+        }
+
+        pos_x = DISPLAY_SZ_MARGIN;
+        pos_y = 195;
+
+        display_base->tft->setTextColor(display_base->user_int >= DISPLAY_INFO_ACTION_LASTITEM ? ILI9341_ORANGERED : ILI9341_BLACK, DISPLAY_COLOR_BG);
+        display_base->tft->setFont(DISPLAY_FONT_ICON2);
+        display_base->tft->setTextScale(1);
+        display_base->tft->cursorToXY(pos_x + 5, pos_y);
+        display_base->tft->println((const __FlashStringHelper *)DISPLAY_FONT_ICON_C_R);
+        display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
+        display_base->tft->setTextScale(1);
+        display_base->tft->cursorToXY(pos_x + 40, pos_y + 5);
+        display_base->tft->println((const __FlashStringHelper *)PSTR("SAIR"));
+        display_base->tft->drawRect(pos_x, pos_y, 110, 40, display_base->user_int >= DISPLAY_INFO_ACTION_LASTITEM ? ILI9341_ORANGERED : ILI9341_BLACK);
+
+        return 0;
+    }
+
+    display_base->tft->fillRect(DISPLAY_SZ_MARGIN, pos_y, 310, 49, DISPLAY_COLOR_BG);
+
+    color = BrbPDUBase_GetStateColor(pdu_base);
+    title_ptr = BrbPDUBase_GetStateText(pdu_base);
+    icon_ptr = BrbPDUBase_GetStateIcon(pdu_base);
+    text_ptr = BrbPDUBase_GetFailureText(pdu_base);
+
+    display_base->tft->setTextColor(color, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_ICON);
+    display_base->tft->setTextScale(1);
+    display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN, pos_y - 5);
+    display_base->tft->println((const __FlashStringHelper *)icon_ptr);
+
+
+    display_base->tft->setTextColor(color, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
+    display_base->tft->setTextScale(1);
+    display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN + 30, pos_y);
+    display_base->tft->println((const __FlashStringHelper *)title_ptr);
+
+    if (text_ptr)
+    {
+        display_base->tft->setTextColor(DISPLAY_COLOR_TEXT_DEFAULT, DISPLAY_COLOR_BG);
+        display_base->tft->setFont(DISPLAY_FONT_BOX_SUB);
+        display_base->tft->setTextScale(1);
+        display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN, pos_y + 35);
+        display_base->tft->print((const __FlashStringHelper *)text_ptr);
+    }
+
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = pos_y + 52;
+
+    display_base->box.text_color = color;
+    display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 320 - (DISPLAY_SZ_MARGIN * 2), 35, DISPLAY_COLOR_BG);
+    BrbDisplayBase_BoxUptime(display_base, pos_x, pos_y, PSTR("State"), ((millis() - pdu_base->state.ms_change) / 1000));
+
+	if (display_base->screen_cur != display_base->screen_last)
+	{
+		BrbDisplayBase_BoxTitle(display_base, pos_x + 200, pos_y, PSTR("Transfer"));
+	}
+
+    display_base->tft->setTextColor(pdu_base->data.flags.auto_enabled ? ILI9341_SEAGREEN : ILI9341_LIGHTGREY, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_ICON);
+    display_base->tft->setTextScale(1);
+    display_base->tft->cursorToXY(pos_x + 200, pos_y + 12);
+    display_base->tft->println((const __FlashStringHelper *)(pdu_base->data.flags.auto_enabled ? DISPLAY_FONT_ICON_ACTIVE : DISPLAY_FONT_ICON_USER));
+
+    display_base->tft->setTextColor(pdu_base->data.flags.transfer_force ? ILI9341_ORANGERED : ILI9341_LIGHTGREY, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_ICON);
+    display_base->tft->setTextScale(1);
+    display_base->tft->cursorToXY(pos_x + 235, pos_y + 12);
+    display_base->tft->println((const __FlashStringHelper *)(pdu_base->data.flags.transfer_force ? DISPLAY_FONT_ICON_P2A : DISPLAY_FONT_ICON_A2P));
+
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = pos_y + 52;
+
+    display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 320 - (DISPLAY_SZ_MARGIN * 2), 35, DISPLAY_COLOR_BG);
+    display_base->box.text_color = (pdu_base->sensor_power.value < PDU_POWER_MIN_VALUE) ? ILI9341_ORANGERED : ILI9341_SEAGREEN;
+    BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("ENERGIA"), pdu_base->sensor_power.value, 1, PSTR("VAC"));
+
+    display_base->box.text_color = (pdu_base->zero_power.value < PDU_POWER_MIN_HZ) ? ILI9341_ORANGERED : ILI9341_SEAGREEN;
+    BrbDisplayBase_BoxSub(display_base, pos_x + 115, pos_y, PSTR("FREQ"), pdu_base->zero_power.value, 1, PSTR("Hz"));
+
+    display_base->box.text_color = pdu_base->ms.power_delay > 0 ? ILI9341_SEAGREEN :  ILI9341_ORANGERED;
+    BrbDisplayBase_BoxUptime(display_base, pos_x + 200, pos_y, PSTR("Uptime"), pdu_base->ms.power_delay / 1000);
+
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = pos_y + 52;
+
+    display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 320 - (DISPLAY_SZ_MARGIN * 2), 35, DISPLAY_COLOR_BG);
+    display_base->box.text_color = (pdu_base->sensor_aux.value < PDU_AUX_MIN_VALUE) ? ILI9341_ORANGERED : ILI9341_SEAGREEN;
+    BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("AUXILIAR"), pdu_base->sensor_aux.value, 1, PSTR("VAC"));
+
+    display_base->box.text_color = (pdu_base->zero_aux.value < PDU_AUX_MIN_HZ) ? ILI9341_ORANGERED : ILI9341_SEAGREEN;
+    BrbDisplayBase_BoxSub(display_base, pos_x + 115, pos_y, PSTR("FREQ"), pdu_base->zero_aux.value, 1, PSTR("Hz"));
+
+    display_base->box.text_color = pdu_base->ms.aux_delay > 0 ? ILI9341_SEAGREEN :  ILI9341_ORANGERED;
+    BrbDisplayBase_BoxUptime(display_base, pos_x + 200, pos_y, PSTR("Uptime"), pdu_base->ms.aux_delay / 1000);
+
+    display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
+    display_base->tft->setTextScale(1);
+
+    return 0;
+}
+/**********************************************************************************************************************/
 int BrbCtlDisplay_ScreenRelay(void *brb_base_ptr, void *display_base_ptr)
 {
     BrbDisplayBase *display_base = (BrbDisplayBase *)display_base_ptr;
@@ -196,6 +432,11 @@ int BrbCtlDisplay_ScreenRelay(void *brb_base_ptr, void *display_base_ptr)
 
     int pos_x;
     int pos_y;
+
+    int relay_mode;
+    int item_cnt = 8;
+    int c;
+    int i;
 
     if (display_base->screen_cur != display_base->screen_last)
     {
@@ -207,13 +448,8 @@ int BrbCtlDisplay_ScreenRelay(void *brb_base_ptr, void *display_base_ptr)
     if (!display_base->flags.on_action && display_base->flags.on_select)
     {
         display_base->flags.on_action = 1;
-        display_base->action_code = -1;
+        display_base->action_code = item_cnt;
     }
-
-    int relay_mode;
-    int item_cnt = 8;
-    int c;
-    int i;
 
     pos_x = 0;
     pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2) + 35;
@@ -232,11 +468,10 @@ int BrbCtlDisplay_ScreenRelay(void *brb_base_ptr, void *display_base_ptr)
             else
             {
                 display_base->flags.on_action = 0;
-                display_base->user_int = 0;
-                // display_base->screen_last = -1;                
+                display_base->user_int = -1;
             }
 
-            return BrbDisplayBase_ScreenAction(display_base, -1);;
+            return BrbDisplayBase_ScreenAction(display_base, -1);
         }
         else if (display_base->action_code == DISPLAY_ACTION_PREV)
         {
@@ -309,9 +544,9 @@ int BrbCtlDisplay_ScreenRelay(void *brb_base_ptr, void *display_base_ptr)
         display_base->tft->println((const __FlashStringHelper *)DISPLAY_FONT_ICON_C_R);
         display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
         display_base->tft->setTextScale(1);
-        display_base->tft->cursorToXY(pos_x + 35, pos_y + 5);
+        display_base->tft->cursorToXY(pos_x + 40, pos_y + 5);
         display_base->tft->println((const __FlashStringHelper *)PSTR("SAIR"));
-        display_base->tft->drawRect(pos_x, pos_y, 105, 40, display_base->user_int == item_cnt ? ILI9341_ORANGERED : ILI9341_BLACK);
+        display_base->tft->drawRect(pos_x, pos_y, 110, 40, display_base->user_int == item_cnt ? ILI9341_ORANGERED : ILI9341_BLACK);
     }
 
     return 0;
@@ -325,6 +560,12 @@ int BrbCtlDisplay_ScreenTransistor(void *brb_base_ptr, void *display_base_ptr)
     int pos_x;
     int pos_y;
 
+    int relay_mode;
+    int relay_check;
+    int item_cnt = 8;
+    int c;
+    int i;
+
     if (display_base->screen_cur != display_base->screen_last)
     {
         BrbDisplayBase_SetBg(display_base);
@@ -335,14 +576,8 @@ int BrbCtlDisplay_ScreenTransistor(void *brb_base_ptr, void *display_base_ptr)
     if (!display_base->flags.on_action && display_base->flags.on_select)
     {
         display_base->flags.on_action = 1;
-        display_base->action_code = -1;
+        display_base->action_code = item_cnt;
     }
-
-    int relay_mode;
-    int relay_check;
-    int item_cnt = 8;
-    int c;
-    int i;
 
     pos_x = 0;
     pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2) + 35;
@@ -361,11 +596,10 @@ int BrbCtlDisplay_ScreenTransistor(void *brb_base_ptr, void *display_base_ptr)
             else
             {
                 display_base->flags.on_action = 0;
-                display_base->user_int = 0;
-                // display_base->screen_last = -1;                
+                display_base->user_int = -1;
             }
 
-            return BrbDisplayBase_ScreenAction(display_base, -1);;
+            return BrbDisplayBase_ScreenAction(display_base, -1);
         }
         else if (display_base->action_code == DISPLAY_ACTION_PREV)
         {
@@ -442,7 +676,7 @@ int BrbCtlDisplay_ScreenTransistor(void *brb_base_ptr, void *display_base_ptr)
     pos_x = DISPLAY_SZ_MARGIN;
     pos_y = DISPLAY_SZ_TITLE_H + 170;
 
-    // display_base->tft->fillRect(DISPLAY_SZ_MARGIN, pos_y, 160, 40, DISPLAY_COLOR_BG);
+    display_base->tft->fillRect(DISPLAY_SZ_MARGIN, pos_y, 160, 40, DISPLAY_COLOR_BG);
 
     if (display_base->flags.on_action)
     {
@@ -453,107 +687,10 @@ int BrbCtlDisplay_ScreenTransistor(void *brb_base_ptr, void *display_base_ptr)
         display_base->tft->println((const __FlashStringHelper *)DISPLAY_FONT_ICON_C_R);
         display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
         display_base->tft->setTextScale(1);
-        display_base->tft->cursorToXY(pos_x + 35, pos_y + 5);
+        display_base->tft->cursorToXY(pos_x + 40, pos_y + 5);
         display_base->tft->println((const __FlashStringHelper *)PSTR("SAIR"));
-        display_base->tft->drawRect(pos_x, pos_y, 105, 40, display_base->user_int == item_cnt ? ILI9341_ORANGERED : ILI9341_BLACK);
+        display_base->tft->drawRect(pos_x, pos_y, 110, 40, display_base->user_int == item_cnt ? ILI9341_ORANGERED : ILI9341_BLACK);
     }
-
-    return 0;
-}
-/**********************************************************************************************************************/
-int BrbCtlDisplay_ScreenInfo(void *brb_base_ptr, void *display_base_ptr)
-{
-    BrbDisplayBase *display_base = (BrbDisplayBase *)display_base_ptr;
-    BrbPDUBase *pdu_base = (BrbPDUBase *)&glob_pdu_base;
-
-    int pos_x;
-    int pos_y;
-
-    const char *icon_ptr = NULL;
-    const char *title_ptr = NULL;
-    const char *text_ptr = NULL;
-    int color;
-
-    if (display_base->screen_cur != display_base->screen_last)
-    {
-        BrbDisplayBase_SetBg(display_base);
-        BrbDisplayBase_SetTitle(display_base, PSTR("INFO"));
-        display_base->tft->fillRect(DISPLAY_SZ_MARGIN, 89, 310, 1, ILI9341_WHITESMOKE);
-    }
-
-    // if (!display_base->flags.on_action && display_base->flags.on_select)
-    // {
-    //     display_base->flags.on_action = 1;
-    //     display_base->action_code = -1;
-    // }
-
-    pos_x = DISPLAY_SZ_MARGIN;
-    pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2);
-
-    display_base->tft->fillRect(DISPLAY_SZ_MARGIN, pos_y, 310, 49, DISPLAY_COLOR_BG);
-
-    color = BrbPDUBase_GetStateColor(pdu_base);
-    title_ptr = BrbPDUBase_GetStateText(pdu_base);
-    icon_ptr = BrbPDUBase_GetStateIcon(pdu_base);
-    text_ptr = BrbPDUBase_GetFailureText(pdu_base);
-
-    display_base->tft->setTextColor(color, DISPLAY_COLOR_BG);
-    display_base->tft->setFont(DISPLAY_FONT_ICON);
-    display_base->tft->setTextScale(1);
-    display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN, pos_y - 5);
-    display_base->tft->println((const __FlashStringHelper *)icon_ptr);
-
-
-    display_base->tft->setTextColor(color, DISPLAY_COLOR_BG);
-    display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
-    display_base->tft->setTextScale(1);
-    display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN + 30, pos_y);
-    display_base->tft->println((const __FlashStringHelper *)title_ptr);
-
-    if (text_ptr)
-    {
-        display_base->tft->setTextColor(DISPLAY_COLOR_TEXT_DEFAULT, DISPLAY_COLOR_BG);
-        display_base->tft->setFont(DISPLAY_FONT_BOX_SUB);
-        display_base->tft->setTextScale(1);
-        display_base->tft->cursorToXY(DISPLAY_SZ_MARGIN, pos_y + 35);
-        display_base->tft->print((const __FlashStringHelper *)text_ptr);
-    }
-
-    pos_x = DISPLAY_SZ_MARGIN;
-    pos_y = pos_y + 52;
-
-    display_base->box.text_color = color;
-    display_base->tft->fillRect(pos_x, pos_y + 12, 320 - (DISPLAY_SZ_MARGIN * 2), 35, DISPLAY_COLOR_BG);
-    BrbDisplayBase_BoxUptime(display_base, pos_x, pos_y, PSTR("State"), (pdu_base->state.delta / 1000));
-
-    pos_x = DISPLAY_SZ_MARGIN;
-    pos_y = pos_y + 52;
-
-    display_base->tft->fillRect(pos_x, pos_y + 12, 320 - (DISPLAY_SZ_MARGIN * 2), 35, DISPLAY_COLOR_BG);
-    display_base->box.text_color = (pdu_base->sensor_power.value < PDU_POWER_MIN_VALUE) ? ILI9341_ORANGERED : ILI9341_SEAGREEN;
-    BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("ENERGIA"), pdu_base->sensor_power.value, 1, PSTR("VAC"));
-
-    display_base->box.text_color = (pdu_base->zero_power.value < PDU_POWER_MIN_HZ) ? ILI9341_ORANGERED : ILI9341_SEAGREEN;
-    BrbDisplayBase_BoxSub(display_base, pos_x + 115, pos_y, PSTR("FREQ"), pdu_base->zero_power.value, 1, PSTR("Hz"));
-
-    display_base->box.text_color = pdu_base->ms.power_delay > 0 ? ILI9341_SEAGREEN :  ILI9341_ORANGERED;
-    BrbDisplayBase_BoxUptime(display_base, pos_x + 200, pos_y, PSTR("Uptime"), pdu_base->ms.power_delay / 1000);
-
-    pos_x = DISPLAY_SZ_MARGIN;
-    pos_y = pos_y + 52;
-
-    display_base->tft->fillRect(pos_x, pos_y + 12, 320 - (DISPLAY_SZ_MARGIN * 2), 35, DISPLAY_COLOR_BG);
-    display_base->box.text_color = (pdu_base->sensor_aux.value < PDU_AUX_MIN_VALUE) ? ILI9341_ORANGERED : ILI9341_SEAGREEN;
-    BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("AUXILIAR"), pdu_base->sensor_aux.value, 1, PSTR("VAC"));
-
-    display_base->box.text_color = (pdu_base->zero_aux.value < PDU_AUX_MIN_HZ) ? ILI9341_ORANGERED : ILI9341_SEAGREEN;
-    BrbDisplayBase_BoxSub(display_base, pos_x + 115, pos_y, PSTR("FREQ"), pdu_base->zero_aux.value, 1, PSTR("Hz"));
-
-    display_base->box.text_color = pdu_base->ms.aux_delay > 0 ? ILI9341_SEAGREEN :  ILI9341_ORANGERED;
-    BrbDisplayBase_BoxUptime(display_base, pos_x + 200, pos_y, PSTR("Uptime"), pdu_base->ms.aux_delay / 1000);
-
-    display_base->tft->setFont(DISPLAY_FONT_BOX_VALUE);
-    display_base->tft->setTextScale(1);
 
     return 0;
 }
@@ -682,30 +819,56 @@ int BrbCtlDisplay_ScreenTemp(void *brb_base_ptr, void *display_base_ptr)
     pos_x = DISPLAY_SZ_MARGIN;
     pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2);
 
-    BrbDisplayBase_DrawBarGraph(display_base, pos_x, pos_y, 130, pdu_base->dht_data.dht_temp, -50, 150);
+    BrbDisplayBase_DrawBarGraph(display_base, pos_x, pos_y, 140, pdu_base->dht_data.dht_temp, -50, 120);
+
+    pos_x = 125;
+    pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2);
+    display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 90, 30, DISPLAY_COLOR_BG);
+    display_base->box.text_color = BrbDisplayBase_Rainbow(map(pdu_base->dht_data.dht_temp, -25, 80, 0, 127));
+    BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("TEMP"), pdu_base->dht_data.dht_temp, 1, PSTR("C"));
 
     pos_x = 90;
-    pos_y = DISPLAY_SZ_TITLE_H + (DISPLAY_SZ_MARGIN * 2);
+    display_base->tft->setTextColor(display_base->box.text_color, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_ICON2);
+    display_base->tft->setTextScale(1);
+    display_base->tft->cursorToXY(pos_x, pos_y + DISPLAY_SZ_BOX_H);
 
-    display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 90, 30, DISPLAY_COLOR_BG);
-    display_base->box.text_color = BrbDisplayBase_Rainbow(map(pdu_base->dht_data.dht_temp, -25, 100, 0, 127));
-    BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("TEMP"), pdu_base->dht_data.dht_temp, 1, PSTR("C"));
+    if (pdu_base->dht_data.dht_temp > 50)
+        display_base->tft->println((const __FlashStringHelper *)PSTR("\""));
+    else if (pdu_base->dht_data.dht_temp > 30)
+        display_base->tft->println((const __FlashStringHelper *)PSTR("\xda"));
+    else if (pdu_base->dht_data.dht_temp < 20)
+        display_base->tft->println((const __FlashStringHelper *)PSTR("\xcc"));
+    else
+        display_base->tft->println((const __FlashStringHelper *)PSTR("\xec"));
 
     // BrbDisplayBase_DrawArcSeg(display_base, pdu_base->dht_data.dht_temp, 0, 130, pos_x, pos_y, 100, PSTR("Celsius"), DISPLAY_ARC_GREEN2RED, 0, 3, 5);
 
-    pos_x = pos_x;
-    pos_y = pos_y + 60;
-
+    pos_x = 125;
+    pos_y = pos_y + 55;
     display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 90, 30, DISPLAY_COLOR_BG);
     display_base->box.text_color = BrbDisplayBase_Rainbow(map(pdu_base->dht_data.dht_humi, -25, 100, 127, 0));
     BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("HUMIDADE"), pdu_base->dht_data.dht_humi, 1, PSTR("%"));
 
-    pos_x = pos_x;
-    pos_y = pos_y + 60;
+    pos_x = 90;
+    display_base->tft->setTextColor(display_base->box.text_color, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_ICON2);
+    display_base->tft->setTextScale(1);
+    display_base->tft->cursorToXY(pos_x, pos_y + DISPLAY_SZ_BOX_H);
+    display_base->tft->println((const __FlashStringHelper *)PSTR("\xcb"));
 
+    pos_x = 125;
+    pos_y = pos_y + 55; 
     display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 90, 30, DISPLAY_COLOR_BG);
     display_base->box.text_color = BrbDisplayBase_Rainbow(map(pdu_base->dht_data.dht_hidx, -25, 100, 0, 127));
     BrbDisplayBase_BoxSub(display_base, pos_x, pos_y, PSTR("HEAT INDEX"), pdu_base->dht_data.dht_hidx, 1, PSTR("C"));
+
+    pos_x = 90;
+    display_base->tft->setTextColor(display_base->box.text_color, DISPLAY_COLOR_BG);
+    display_base->tft->setFont(DISPLAY_FONT_ICON2);
+    display_base->tft->setTextScale(1);
+    display_base->tft->cursorToXY(pos_x, pos_y + DISPLAY_SZ_BOX_H);
+    display_base->tft->println((const __FlashStringHelper *)PSTR("P"));
 
     return 0;
 }
@@ -731,25 +894,21 @@ int BrbCtlDisplay_ScreenCore(void *brb_base_ptr, void *display_base_ptr)
     display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 310, 30, DISPLAY_COLOR_BG);
     display_base->box.text_color = ILI9341_MIDNIGHTBLUE;
     BrbDisplayBase_BoxUptime(display_base, pos_x, pos_y, PSTR("UpTime"), millis() / 1000);
-    BrbDisplayBase_BoxUptime(display_base, pos_x + 140, pos_y, PSTR("LifeTime"), brb_base->data.lifetime_sec);
+    BrbDisplayBase_BoxFmt(display_base, pos_x + 180, pos_y, PSTR("Memoria"), PSTR("%d"), BrbBase_FreeRAM());
 
     pos_x = DISPLAY_SZ_MARGIN;
-    pos_y = pos_y + 55;
+    pos_y = pos_y + 50;
 
     display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 310, 30, DISPLAY_COLOR_BG);
-    BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("Memoria"), PSTR("%d"), BrbBase_FreeRAM());
-    // BrbDisplayBase_BoxSub(display_base, pos_x + 160, pos_y, PSTR("Memoria"), BrbBase_FreeRAM(), 1, PSTR("%"));
+    BrbDisplayBase_BoxUptime(display_base, pos_x, pos_y, PSTR("LifeTime"), brb_base->data.lifetime_sec);
+    BrbDisplayBase_BoxFmt(display_base, pos_x + 180, pos_y, PSTR("UpCount"), PSTR("%d"), brb_base->data.upcount);
 
-    // pos_x = DISPLAY_SZ_MARGIN;
-    // pos_y = pos_y + 55;
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = pos_y + 50;
 
-    // display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 310, 30, DISPLAY_COLOR_BG);
-    // BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("RX/TX"), PSTR("%lu/%lu"), rs485_sess->stats.byte.rx, rs485_sess->stats.byte.tx);
-    // BrbDisplayBase_BoxUnit(display_base, pos_x, pos_y + DISPLAY_SZ_BOX_H, PSTR("KB"));
-
-    // BrbDisplayBase_BoxFmt(display_base, pos_x + 160, pos_y, PSTR("Error"), PSTR("%lu/%lu"),
-    //                       (rs485_sess->stats.err.bad_char + rs485_sess->stats.err.crc + rs485_sess->stats.err.overflow + rs485_sess->stats.err.pkt),
-    //                       (rs485_sess->stats.pkt.err.cmd_id + rs485_sess->stats.pkt.err.cmd_no_bcast + rs485_sess->stats.pkt.err.cmd_no_cb));
+    display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 310, 30, DISPLAY_COLOR_BG);
+    BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("Delay"), PSTR("%d"), brb_base->ms.delay);
+    BrbDisplayBase_BoxFmt(display_base, pos_x + 160, pos_y, PSTR("Loop"), PSTR("%d"), brb_base->stats.loop_cnt);
 
     return 0;
 }
@@ -777,31 +936,34 @@ int BrbCtlDisplay_ScreenRS485(void *brb_base_ptr, void *display_base_ptr)
 
     display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 310, 30, DISPLAY_COLOR_BG);
     BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("UUID"), PSTR("%02x-%02x-%02x-%02x"), rs485_sess->data.uuid[0], rs485_sess->data.uuid[1], rs485_sess->data.uuid[2], rs485_sess->data.uuid[2]);
-    BrbDisplayBase_BoxFmt(display_base, pos_x + 190, pos_y, PSTR("ADDR"), PSTR("%02x"), rs485_sess->data.address);
+    BrbDisplayBase_BoxFmt(display_base, pos_x + 160, pos_y, PSTR("ADDR"), PSTR("%02x"), rs485_sess->data.address);
 
     pos_x = DISPLAY_SZ_MARGIN;
-    pos_y = pos_y + 55;
-
+    pos_y = pos_y + 50;
+    
     display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 310, 30, DISPLAY_COLOR_BG);
-    BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("Packet RX/TX"), PSTR("%lu/%lu"), rs485_sess->stats.pkt.rx, rs485_sess->stats.pkt.tx);
-    BrbDisplayBase_BoxFmt(display_base, pos_x + 130, pos_y, PSTR("Me"), PSTR("%lu"), rs485_sess->stats.pkt.me);
-    BrbDisplayBase_BoxFmt(display_base, pos_x + 190, pos_y, PSTR("Broadcast"), PSTR("%lu"), rs485_sess->stats.pkt.bcast);
-
-    pos_x = DISPLAY_SZ_MARGIN;
-    pos_y = pos_y + 55;
-    display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 310, 30, DISPLAY_COLOR_BG);
-    //
-    // BrbDisplayBase_BoxFmt(display_base, pos_x + 190, pos_y, PSTR("Pkt Error"), PSTR("%lu/%lu/%lu"), rs485_sess->stats.pkt.err.cmd_id, rs485_sess->stats.pkt.err.cmd_no_bcast, rs485_sess->stats.pkt.err.cmd_no_cb);
-    // BrbDisplayBase_BoxFmt(display_base, pos_x + 190, pos_y, PSTR("Pkt Error"), PSTR("%lu/%lu/%lu"), rs485_sess->stats.pkt.err.cmd_id, rs485_sess->stats.pkt.err.cmd_no_bcast, rs485_sess->stats.pkt.err.cmd_no_cb);
 
     char byte_rx[16];
     char byte_tx[16];
 
-    dtostrf((double)(rs485_sess->stats.byte.rx / 1024.0), 5, 2, byte_rx);
-    dtostrf((double)(rs485_sess->stats.byte.tx / 1024.0), 5, 2, byte_tx);
+    dtostrf((double)(rs485_sess->stats.byte.rx / 1024.0), 3, 2, byte_rx);
+    dtostrf((double)(rs485_sess->stats.byte.tx / 1024.0), 3, 2, byte_tx);
 
-    BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("Bytes RX/TX"), PSTR("%s/%s"), byte_rx, byte_tx);
-    BrbDisplayBase_BoxFmt(display_base, pos_x + 190, pos_y, PSTR("Error"), PSTR("%lu/%lu/%lu"), rs485_sess->stats.err.bad_char, rs485_sess->stats.err.crc, rs485_sess->stats.err.overflow);
+    BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("Bytes RX"), PSTR("%s"), byte_rx);
+    BrbDisplayBase_BoxFmt(display_base, pos_x + 160, pos_y, PSTR("Bytes TX"), PSTR("%s"), byte_tx);
+
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = pos_y + 50;
+
+    display_base->tft->fillRect(pos_x, pos_y + DISPLAY_SZ_BOX_H, 310, 30, DISPLAY_COLOR_BG);
+    BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("Packet RX/TX"), PSTR("%lu/%lu"), rs485_sess->stats.pkt.rx, rs485_sess->stats.pkt.tx);
+    BrbDisplayBase_BoxFmt(display_base, pos_x + 160, pos_y, PSTR("Me/Broad"), PSTR("%lu/%lu"), rs485_sess->stats.pkt.me, rs485_sess->stats.pkt.bcast);
+
+    pos_x = DISPLAY_SZ_MARGIN;
+    pos_y = pos_y + 50;
+    
+    BrbDisplayBase_BoxFmt(display_base, pos_x, pos_y, PSTR("Error"), PSTR("%lu/%lu/%lu"), rs485_sess->stats.err.bad_char, rs485_sess->stats.err.crc, rs485_sess->stats.err.overflow);
+    BrbDisplayBase_BoxFmt(display_base, pos_x + 160, pos_y, PSTR("Fail"), PSTR("%lu/%lu/%lu"), rs485_sess->stats.pkt.err.cmd_id, rs485_sess->stats.pkt.err.cmd_no_bcast, rs485_sess->stats.pkt.err.cmd_no_cb);
 
     return 0;
 }

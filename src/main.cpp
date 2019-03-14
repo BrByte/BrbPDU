@@ -84,7 +84,6 @@ void BrbToneSetup(void)
     memset(&glob_tone_base, 0, sizeof(BrbToneBase));
 
     glob_tone_base.pin = BUZZER_PIN;
-    glob_tone_base.brb_base = &glob_brb_base;
     BrbToneBase_Init(&glob_tone_base);
 
     return;

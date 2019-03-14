@@ -149,7 +149,7 @@
 #define PDU_AUX_MIN_VALUE 160
 #define PDU_AUX_MIN_HZ 10
 /**********************************************************/
-#define PDU_TIMER_FAIL_DELAY_MS 10000
+#define PDU_TIMER_FAIL_DELAY_MS 15000
 
 // #define PDU_TIMER_POWER_DELAY_MS 10000
 #define PDU_TIMER_POWER_MIN_MS 15000
@@ -177,9 +177,10 @@
 typedef enum
 {
 	PDU_ACTION_NONE,
+	PDU_ACTION_AUTO_ENABLE,
+	PDU_ACTION_AUTO_DISABLE,
 	PDU_ACTION_TRANSFER_ENABLE,
 	PDU_ACTION_TRANSFER_DISABLE,
-	PDU_ACTION_TRANSFER_FORCE,
 
 	PDU_ACTION_LAST_ITEM
 
@@ -278,8 +279,9 @@ typedef struct _BrbPDUBase
 		BrbPDUStateCode code;
 		BrbPDUFailureCode fail;
 
-		long time;
-		long delta;
+		long ms_last;
+		long ms_change;
+		long ms_delta;
 
 		int retry;
 
@@ -307,13 +309,18 @@ typedef struct _BrbPDUBase
 		int rly_data[PDU_RLY_COUNT];
 		
 		long payload[8];
+		
+		struct
+		{
+			unsigned int auto_enabled : 1;
+			unsigned int transfer_force : 1;
+		} flags;
 
 	} data;
 
 	struct
 	{
-		unsigned int transfer_enabled : 1;
-		unsigned int transfer_force : 1;
+		unsigned int foo : 1;
 	} flags;
 
 } BrbPDUBase;

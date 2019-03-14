@@ -151,10 +151,12 @@ int BrbPDUBase_PowerCheck(BrbPDUBase *pdu_base)
 		interrupts();
 	}
 
-#define RAC1 220000.0
-#define RAC2 10000.0
+// #define RAC1 220000.0
+// #define RAC2 9500.0
 // #define RACR (RAC2 / (RAC2 + RAC1))
-#define RACR 0.0165
+// #define RACR 0.0165
+#define RACR 0.0213
+#define RACF 0.001
 
 	pdu_base->sensor.ms_delta = (pdu_base->ms.cur - pdu_base->sensor.ms_last);
 
@@ -174,7 +176,10 @@ int BrbPDUBase_PowerCheck(BrbPDUBase *pdu_base)
 			}
 
 			samples_value /= PDU_TIMER_SENSOR_SAMPLES;
-			pdu_base->sensor_power.value = ((samples_value * 5.0) / 1023.0) / RACR;
+			pdu_base->sensor_power.value = ((samples_value * 5.0) / 1023.0);
+
+			if (pdu_base->sensor_power.value > 0)
+				pdu_base->sensor_power.value = pdu_base->sensor_power.value / (RACR - ((5.0 - pdu_base->sensor_power.value) * RACF));
 			// pdu_base->sensor_power.value = ((analogRead(pdu_base->sensor_power.pin) * 5.0) / 1023.0) / RACR;
 		}
 
@@ -186,7 +191,11 @@ int BrbPDUBase_PowerCheck(BrbPDUBase *pdu_base)
 			}
 
 			samples_value /= PDU_TIMER_SENSOR_SAMPLES;
-			pdu_base->sensor_aux.value = ((samples_value * 5.0) / 1023.0) / RACR;
+			pdu_base->sensor_aux.value = ((samples_value * 5.0) / 1023.0);
+
+			if (pdu_base->sensor_aux.value > 0)
+				pdu_base->sensor_aux.value = pdu_base->sensor_aux.value / (RACR - ((5.0 - pdu_base->sensor_aux.value) * RACF));
+
 			// pdu_base->sensor_aux.value = ((analogRead(pdu_base->sensor_aux.pin) * 5.0) / 1023.0) / RACR;
 		}
 
@@ -230,7 +239,7 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 
 	pdu_base->ms.last = pdu_base->ms.cur;
 	pdu_base->ms.cur = pdu_base->brb_base->ms.cur;
-	pdu_base->state.delta = (pdu_base->ms.cur - pdu_base->state.time);
+	pdu_base->state.ms_delta = (pdu_base->ms.cur - pdu_base->state.ms_last);
 
 	BrbPDUBase_DHTCheck(pdu_base);
 
@@ -255,9 +264,13 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 			break;
 		}
 
+		/* We are waiting delay */
+		if ((pdu_base->state.ms_last > 0) && (pdu_base->state.ms_delta > (PDU_TIMER_POWER_MIN_MS)))
+			return BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_FAILURE, PDU_FAILURE_POWER_DOWN);
+
 		/* Update time */
-		if (pdu_base->state.time == 0)
-			pdu_base->state.time = pdu_base->ms.cur;
+		if (pdu_base->state.ms_last == 0)
+			pdu_base->state.ms_last = pdu_base->ms.cur;
 
 		break;
 	}
@@ -272,7 +285,7 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 	case PDU_STATE_RUNNING_AUX:
 	{
 		/* We got energy back, transfer back */
-		if (!pdu_base->flags.transfer_force && pdu_base->ms.power_delay > PDU_TIMER_POWER_MIN_MS)
+		if (!pdu_base->data.flags.transfer_force && pdu_base->ms.power_delay > PDU_TIMER_POWER_MIN_MS)
 			return BrbPDUBase_TransferAuxToPower(pdu_base);
 
 		/* Check Power */
@@ -284,15 +297,15 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 	case PDU_STATE_TRANSF_P2A_DELAY:
 	{
 		/* Can't transfer P2A */
-		if (!pdu_base->flags.transfer_enabled)
+		if (!pdu_base->data.flags.auto_enabled)
 			return BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_FAILURE, PDU_FAILURE_CANT_P2A);
 
 		/* We are waiting delay */
-		if ((pdu_base->state.time > 0) && (pdu_base->state.delta < PDU_TIMER_TRANSF_P2A_DELAY_MS))
+		if ((pdu_base->state.ms_last > 0) && (pdu_base->state.ms_delta < PDU_TIMER_TRANSF_P2A_DELAY_MS))
 			break;
 
 		/* Min time without energy */
-		if (!pdu_base->flags.transfer_force && pdu_base->ms.aux_delay < PDU_TIMER_AUX_MIN_MS)
+		if (!pdu_base->data.flags.transfer_force && pdu_base->ms.aux_delay < PDU_TIMER_AUX_MIN_MS)
 		{
 			if (pdu_base->state.retry >= 3)
 				return BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_FAILURE, PDU_FAILURE_CANT_P2A);
@@ -314,7 +327,7 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 	case PDU_STATE_TRANSF_A2P_DELAY:
 	{
 		/* We are waiting delay */
-		if ((pdu_base->state.time > 0) && (pdu_base->state.delta < PDU_TIMER_TRANSF_A2P_DELAY_MS))
+		if ((pdu_base->state.ms_last > 0) && (pdu_base->state.ms_delta < PDU_TIMER_TRANSF_A2P_DELAY_MS))
 			break;
 
 		/* Transfer */
@@ -329,7 +342,7 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 	case PDU_STATE_FAILURE:
 	{
 		/* We are waiting delay */
-		if ((pdu_base->state.time > 0) && (pdu_base->state.delta < PDU_TIMER_FAIL_DELAY_MS))
+		if ((pdu_base->state.ms_last > 0) && (pdu_base->state.ms_delta < PDU_TIMER_FAIL_DELAY_MS))
 			break;
 
 		/* Transfer */
@@ -346,7 +359,7 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 				return BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_RUNNING_POWER, PDU_FAILURE_NONE);
 			
 			/* We can transfer to auxiliary, and there is energy, try it */
-			if (pdu_base->flags.transfer_enabled && (pdu_base->ms.aux_delay > 3000))
+			if (pdu_base->data.flags.auto_enabled && (pdu_base->ms.aux_delay > 3000))
 				return BrbPDUBase_TransferPowerToAux(pdu_base);
 
 			break;
@@ -354,7 +367,7 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 		case PDU_FAILURE_AUX_DOWN:
 		{
 			/* Power is up again, reset, so we can initiate */
-			if (pdu_base->flags.transfer_enabled && (pdu_base->ms.aux_delay > 3000))
+			if (pdu_base->data.flags.auto_enabled && (pdu_base->ms.aux_delay > 3000))
 				return BrbPDUBase_TransferPowerToAux(pdu_base);
 
 			/* Power is up again, at least 3 seconds to wait clean up */
@@ -367,9 +380,7 @@ int BrbPDUBase_Loop(BrbPDUBase *pdu_base)
 		{
 			/* Power is up again, reset, so we can initiate */
 			if (pdu_base->state.retry < 3)
-			{
 				return BrbPDUBase_TransferPowerToAux(pdu_base);
-			}
 
 			break;
 		}
@@ -434,10 +445,15 @@ static int BrbPDUBase_TransferOFF(BrbPDUBase *pdu_base)
 /**********************************************************************************************************************/
 static int BrbPDUBase_PowerSetState(BrbPDUBase *pdu_base, BrbPDUStateCode code, BrbPDUFailureCode fail)
 {
-	pdu_base->state.delta = 0;
-	pdu_base->state.code = code;
-	pdu_base->state.fail = fail;
-	pdu_base->state.time = pdu_base->ms.cur;
+	pdu_base->state.ms_delta = 0;	
+	pdu_base->state.ms_last = pdu_base->ms.cur;
+
+	if (pdu_base->state.code != code || pdu_base->state.fail != fail)
+	{
+		pdu_base->state.code = code;
+		pdu_base->state.fail = fail;
+		pdu_base->state.ms_change = pdu_base->ms.cur;
+	}
 
 	BrbRS485PacketVal rs485_pkt_val = {0};
 
@@ -462,35 +478,30 @@ int BrbPDUBase_ActionCmd(BrbPDUBase *pdu_base, int cmd_code)
 {
 	switch (cmd_code)
 	{
-	case PDU_ACTION_TRANSFER_ENABLE:
+	case PDU_ACTION_AUTO_ENABLE:
 	{
-		pdu_base->flags.transfer_force = 0;
-		pdu_base->flags.transfer_enabled = 1;
+		pdu_base->data.flags.transfer_force = 0;
+		pdu_base->data.flags.auto_enabled = 1;
 
-		switch (pdu_base->state.code)
-		{
-		case PDU_STATE_TRANSF_P2A_DELAY:
-		case PDU_STATE_RUNNING_AUX:
-		{
-			return 1;
-		}
-		case PDU_STATE_TRANSF_A2P_DELAY:
-		case PDU_STATE_RUNNING_POWER:
-		case PDU_STATE_FAILURE:
-		default:
-
-			BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_TRANSF_P2A_DELAY, PDU_FAILURE_NONE);
-
-			BrbToneBase_PlayAction(pdu_base->tone_base);
-			break;
-		}
+		BrbToneBase_PlayAction(pdu_base->tone_base);
 
 		break;
 	}
-	case PDU_ACTION_TRANSFER_FORCE:
+	case PDU_ACTION_AUTO_DISABLE:
 	{
-		pdu_base->flags.transfer_force = 1;
-		pdu_base->flags.transfer_enabled = 1;
+		pdu_base->data.flags.transfer_force = 0;
+		pdu_base->data.flags.auto_enabled = 0;
+
+		BrbToneBase_PlayAction(pdu_base->tone_base);
+
+		break;
+	}
+	case PDU_ACTION_TRANSFER_ENABLE:
+	{
+		pdu_base->data.flags.transfer_force = 1;
+		pdu_base->data.flags.auto_enabled = 1;
+
+		BrbToneBase_PlayAction(pdu_base->tone_base);
 
 		switch (pdu_base->state.code)
 		{
@@ -503,19 +514,16 @@ int BrbPDUBase_ActionCmd(BrbPDUBase *pdu_base, int cmd_code)
 		case PDU_STATE_RUNNING_POWER:
 		case PDU_STATE_FAILURE:
 		default:
-
-			BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_TRANSF_P2A_DELAY, PDU_FAILURE_NONE);
-
-			BrbToneBase_PlayAction(pdu_base->tone_base);
-			break;
+			return BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_TRANSF_P2A_DELAY, PDU_FAILURE_NONE);
 		}
 
 		break;
 	}
 	case PDU_ACTION_TRANSFER_DISABLE:
 	{
-		pdu_base->flags.transfer_force = 0;
-		pdu_base->flags.transfer_enabled = 0;
+		pdu_base->data.flags.transfer_force = 0;
+		pdu_base->data.flags.auto_enabled = 1;
+
 
 		switch (pdu_base->state.code)
 		{
@@ -528,21 +536,18 @@ int BrbPDUBase_ActionCmd(BrbPDUBase *pdu_base, int cmd_code)
 		case PDU_STATE_RUNNING_AUX:
 		case PDU_STATE_FAILURE:
 		default:
-			BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_TRANSF_A2P_DELAY, PDU_FAILURE_NONE);
-
-			BrbToneBase_PlayAction(pdu_base->tone_base);
-			break;
+			return BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_TRANSF_A2P_DELAY, PDU_FAILURE_NONE);
 		}
 
 		break;
 	}
 	case PDU_ACTION_NONE:
 	{
-		pdu_base->flags.transfer_force = 0;
-		pdu_base->flags.transfer_enabled = 0;
-		BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_NONE, PDU_FAILURE_NONE);
-
+		pdu_base->data.flags.transfer_force = 0;
+		pdu_base->data.flags.auto_enabled = 0;
 		BrbToneBase_PlayAction(pdu_base->tone_base);
+
+		return BrbPDUBase_PowerSetState(pdu_base, PDU_STATE_NONE, PDU_FAILURE_NONE);
 
 		break;
 	}
