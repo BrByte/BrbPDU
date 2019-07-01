@@ -143,10 +143,10 @@ int BrbPDUBase_PowerCheck(BrbPDUBase *pdu_base)
 		pdu_base->zerocross.ms_last = pdu_base->ms.cur;
 
 		noInterrupts();
-		pdu_base->zero_power.value = (pdu_base->zero_power.counter / (pdu_base->zerocross.ms_delta / 1000.0)) / 2.0;
+		pdu_base->zero_power.value = pdu_base->zero_power.counter > 0 ? ((pdu_base->zero_power.counter / (pdu_base->zerocross.ms_delta / 1000.0)) / 2.0) : 0;
 		pdu_base->zero_power.counter = 0;
 
-		pdu_base->zero_aux.value = (pdu_base->zero_aux.counter / (pdu_base->zerocross.ms_delta / 1000.0)) / 2.0;
+		pdu_base->zero_aux.value = pdu_base->zero_aux.counter > 0 ? ((pdu_base->zero_aux.counter / (pdu_base->zerocross.ms_delta / 1000.0)) / 2.0) : 0;
 		pdu_base->zero_aux.counter = 0;
 		interrupts();
 	}
